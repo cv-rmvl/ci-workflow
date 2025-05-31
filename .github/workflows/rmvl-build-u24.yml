@@ -14,7 +14,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt update
-        sudo apt install -y libeigen3-dev libopencv-dev pybind11-dev
+        sudo apt install -y libeigen3-dev libopencv-dev python3-dev pybind11-dev
         curl -sSL https://github.com/microsoft/onnxruntime/releases/download/v1.18.1/onnxruntime-linux-x64-1.18.1.tgz -o onnxruntime-linux-x64-1.18.1.tgz
         tar -xf onnxruntime-linux-x64-1.18.1.tgz
         sudo mkdir /usr/local/include/onnxruntime
