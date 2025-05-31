@@ -8,15 +8,9 @@ jobs:
     name: Build and test on Ubuntu 20.04
     runs-on: ubuntu-latest
     container:
-      image: ubuntu:20.04
+      image: registry.cn-hangzhou.aliyuncs.com/cv-rmvl/rmvl-u20-base:latest
 
     steps:
-    - name: Upgrade and install the necessary packages for container
-      run: |
-        apt update
-        apt upgrade -y
-        apt install -y curl git build-essential cmake ninja-build
-
     - name: Checkout repository
       uses: actions/checkout@v4
 
