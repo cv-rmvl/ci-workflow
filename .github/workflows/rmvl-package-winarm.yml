@@ -1,0 +1,32 @@
+name: Windows ARM arch support for RMVL
+
+on:
+  workflow_call:
+
+jobs:
+  build_and_test:
+    name: Build and test on Windows (without OpenCV)
+    runs-on: windows-11-arm
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Configure RMVL by CMake 
+      run: cmake -B ${{ github.workspace }}/build -DBUILD_OPEN62541=ON
+
+    - name: Build RMVL
+      run: cmake --build ${{ github.workspace }}/build --parallel 4 --config Release
+
+    - name: Package RMVL
+      run: cpack -G "NSIS" -D CPACK_PACKAGE_DIRECTORY=${{ github.workspace }}/build/out-package
+
+    - name: Upload RMVL package
+      uses: actions/upload-artifact@v4
+      with:
+        name: rmvl-winarm-package
+        path: |
+          ${{ github.workspace }}/build/out-package/*.deb
+          ${{ github.workspace }}/build/out-package/*.tar.gz
+        retention-days: 1
+        compression-level: 0
+        if-no-files-found: error

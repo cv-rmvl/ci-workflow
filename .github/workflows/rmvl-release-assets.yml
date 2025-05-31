@@ -1,0 +1,55 @@
+name: Create Release note and upload assets
+
+on:
+  workflow_call:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Create Release note
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Extract version
+        id: extract_version
+        run: |
+          version=${GITHUB_REF#refs/tags/}
+          version_number=${version//./}
+          echo "version_id=${version_number}" >> $GITHUB_OUTPUT
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          pattern: rmvl-*-package
+          merge-multiple: true
+
+      - name: Generate SHA256 checksums
+        run: |
+          ls artifacts | xargs sha256sum > checksums.txt
+
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          body: |
+            RMVL ${{ github.ref_name }} has been released
+
+            :hammer_and_wrench: ChangeLog is [hear](https://github.com/cv-rmvl/rmvl/wiki/ChangeLog#version-${{ steps.extract_version.outputs.version_id }})
+
+            ### SHA256 Checksums
+            \`\`\`text
+            $(cat checksums.txt)
+            \`\`\`
+          files: |
+            artifacts/*
+          draft: false
+          prerelease: false
