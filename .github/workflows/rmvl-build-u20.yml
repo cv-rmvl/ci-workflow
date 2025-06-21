@@ -38,3 +38,15 @@ jobs:
 
     - name: Test RMVL
       run: ctest --test-dir ${{ github.workspace }}/build
+
+    - name: Install RMVL
+      run: cmake --install ${{ github.workspace }}/build
+
+    - name: (Deploy test) Checkout repository
+      uses: actions/checkout@v4
+      with:
+        repository: cv-rmvl/ci-workflow
+        path: deploy-repo
+
+    - name: (Deploy test) Test
+      run: bash deploy-repo/deploy/scripts/build.sh
