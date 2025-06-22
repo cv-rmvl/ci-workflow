@@ -1,10 +1,6 @@
 #!/bin/bash
 
-set -eu
-
-function fmt() {
-  sed 's/^/       /'
-}
+set -euo pipefail
 
 # Info messages
 function pass() {
@@ -12,6 +8,13 @@ function pass() {
 }
 function info() {
   echo -e "\033[1m[INFO]\033[0m $1"
+}
+function fail() {
+  echo -e "\033[31;1m[FAIL] $1\033[0m"
+  exit 1
+}
+function fmt() {
+  sed 's/^/       /'
 }
 
 ws=$(realpath "$(dirname "$0")/..")
@@ -23,15 +26,24 @@ if [ -d "build" ]; then
 fi
 info "Configure project ..."
 mkdir build && cd build
-cmake .. | fmt
+if ! cmake .. | fmt; then
+  fail "Failed to configure project"
+fi
 pass "Configure project done"
 
 info "Build project ..."
-cmake --build . | fmt
+if ! cmake --build . | fmt; then
+  fail "Failed to build project"
+fi
 pass "Build project done"
 
 for m in inc; do
   info "Run $m ..."
-  ./$m | fmt
+  if [ ! -f "./$m" ]; then
+    fail "Executable $m not found - build may have failed"
+  fi
+  if ! ./$m | fmt; then
+    fail "Failed to run $m"
+  fi
 done
 pass "Run all deployment test done"
