@@ -37,7 +37,7 @@ jobs:
       run: cmake --build ${{ github.workspace }}/build --parallel 4
 
     - name: Test RMVL
-      run: ctest --test-dir ${{ github.workspace }}/build
+      run: cd ${{ github.workspace }}/build && ctest
 
     - name: Install RMVL
       run: cmake --install ${{ github.workspace }}/build

@@ -33,7 +33,7 @@ jobs:
       run: ctest --test-dir ${{ github.workspace }}/build
 
     - name: Install RMVL
-      run: cmake --install ${{ github.workspace }}/build
+      run: sudo cmake --install ${{ github.workspace }}/build
 
     - name: (Deploy test) Checkout repository
       uses: actions/checkout@v4
