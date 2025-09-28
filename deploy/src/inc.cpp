@@ -4,5 +4,5 @@
 #include <rmvlpara/rmvlpara.hpp>
 
 int main() {
-    printf("inc.cpp: rmvl version: %s\n", rm::version());
+    printf("inc.cpp: rmvl version: %s\n", rm::getVersionString());
 }

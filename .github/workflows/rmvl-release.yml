@@ -21,19 +21,6 @@ jobs:
           version_number=${version//./}
           echo "version_id=${version_number}" >> $GITHUB_OUTPUT
 
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-          pattern: rmvl-*-package
-          merge-multiple: true
-
-      - name: Generate SHA256 checksums
-        id: generate_checksums
-        run: |
-          cd artifacts
-          echo "checksums=$(ls | xargs sha256sum)" >> $GITHUB_OUTPUT
-
       - name: Create Release
         id: create_release
         uses: softprops/action-gh-release@v2
@@ -46,12 +33,5 @@ jobs:
             RMVL ${{ github.ref_name }} has been released
 
             :hammer_and_wrench: ChangeLog is [hear](https://github.com/cv-rmvl/rmvl/wiki/ChangeLog#version-${{ steps.extract_version.outputs.version_id }})
-
-            ### SHA256 Checksums
-            \`\`\`text
-            ${{ steps.generate_checksums.outputs.checksums }}
-            \`\`\`
-          files: |
-            artifacts/*
           draft: false
           prerelease: false
