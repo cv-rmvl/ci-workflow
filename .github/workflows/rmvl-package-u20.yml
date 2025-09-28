@@ -4,11 +4,11 @@ on:
   workflow_call:
 
 jobs:
-  build_and_test:
-    name: Build and test on Ubuntu 20.04
+  package_pipe:
+    name: Package on Ubuntu 20.04
     runs-on: ubuntu-latest
     container:
-      image: ubuntu:20.04
+      image: registry.cn-hangzhou.aliyuncs.com/cv-rmvl/rmvl-u20-base:latest
 
     steps:
     - name: Upgrade and install the necessary packages for container
@@ -38,7 +38,9 @@ jobs:
       run: cmake --build ${{ github.workspace }}/build --parallel 4
 
     - name: Package RMVL
-      run: cpack -G "DEB;TGZ" -D CPACK_PACKAGE_DIRECTORY=${{ github.workspace }}/build/out-package
+      run: |
+        cd ${{ github.workspace }}/build
+        cpack -G "DEB;TGZ" -D CPACK_PACKAGE_DIRECTORY=${{ github.workspace }}/build/out-package
 
     - name: Upload RMVL package
       uses: actions/upload-artifact@v4

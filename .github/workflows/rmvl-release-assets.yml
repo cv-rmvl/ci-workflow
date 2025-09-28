@@ -26,11 +26,47 @@ jobs:
         with:
           path: artifacts
           pattern: rmvl-*-package
-          merge-multiple: true
+          merge-multiple: false
+
+      - name: Rename files to avoid conflicts
+        run: |
+          cd artifacts
+          for dir in */; do
+            if [ -d "$dir" ]; then
+              distro=$(echo "$dir" | sed 's/rmvl-\(.*\)-package\//\1/')
+              echo -e "\033[32mProcessing directory: $dir, distro: $distro\033[0m"
+              
+              find "$dir" -type f | while read -r file; do
+                filename=$(basename "$file")
+                echo "Processing file: $filename"
+                if [[ "$filename" == *.tar.gz ]]; then
+                  base_name="${filename%.tar.gz}"
+                  new_name="${base_name}-${distro}.tar.gz"
+                elif [[ "$filename" == *.deb ]]; then
+                  base_name="${filename%.deb}"
+                  new_name="${base_name}-${distro}.deb"
+                else
+                  new_name="$filename"
+                fi
+                
+                echo "Renaming $file to ./$new_name"
+                mv "$file" "./$new_name"
+              done
+              
+              find "$dir" -type d -empty -delete 2>/dev/null || true
+            fi
+          done
 
       - name: Generate SHA256 checksums
+        id: sha256gen
         run: |
-          ls artifacts | xargs sha256sum > checksums.txt
+          cd artifacts
+          find . -maxdepth 1 -type f ! -name "checksums.txt" -exec sha256sum {} \; | sort > checksums.txt
+          echo -e "\033[32mGenerated checksums:\033[0m"
+          cat checksums.txt
+          echo "sha256sums<<EOF" >> $GITHUB_OUTPUT
+          cat checksums.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
 
       - name: Create Release
         id: create_release
@@ -43,13 +79,14 @@ jobs:
           body: |
             RMVL ${{ github.ref_name }} has been released
 
-            :hammer_and_wrench: ChangeLog is [hear](https://github.com/cv-rmvl/rmvl/wiki/ChangeLog#version-${{ steps.extract_version.outputs.version_id }})
+            :hammer_and_wrench: ChangeLog is [here](https://github.com/cv-rmvl/rmvl/wiki/ChangeLog#version-${{ steps.extract_version.outputs.version_id }})
 
             ### SHA256 Checksums
-            \`\`\`text
-            $(cat checksums.txt)
-            \`\`\`
+            ```
+            ${{ steps.sha256gen.outputs.sha256sums }}
+            ```
           files: |
             artifacts/*
+            !artifacts/checksums.txt
           draft: false
           prerelease: false

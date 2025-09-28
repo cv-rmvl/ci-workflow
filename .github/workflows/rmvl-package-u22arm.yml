@@ -4,8 +4,8 @@ on:
   workflow_call:
 
 jobs:
-  build_and_test:
-    name: Build and test on Ubuntu 22.04 (ARM arch)
+  package_pipe:
+    name: Package on Ubuntu 22.04 (ARM arch)
     runs-on: ubuntu-22.04-arm
     steps:
     - name: Checkout repository
@@ -30,7 +30,9 @@ jobs:
       run: cmake --build ${{ github.workspace }}/build --parallel 4
 
     - name: Package RMVL
-      run: cpack -G "DEB;TGZ" -D CPACK_PACKAGE_DIRECTORY=${{ github.workspace }}/build/out-package
+      run: |
+        cd ${{ github.workspace }}/build
+        cpack -G "DEB;TGZ" -D CPACK_PACKAGE_DIRECTORY=${{ github.workspace }}/build/out-package
 
     - name: Upload RMVL package
       uses: actions/upload-artifact@v4
