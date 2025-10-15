@@ -37,7 +37,7 @@ if ! cmake --build . | fmt; then
 fi
 pass "Build project done"
 
-for m in inc; do
+for m in inc link; do
   info "Run $m ..."
   if [ ! -f "./$m" ]; then
     fail "Executable $m not found - build may have failed"

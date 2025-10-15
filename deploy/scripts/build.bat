@@ -32,7 +32,7 @@ if %errorlevel% neq 0 (
 echo [PASS] Build project done
 
 REM Run executables using for loop
-for %%m in (inc) do (
+for %%m in (inc link) do (
     echo [INFO] Run %%m ...
     if not exist "%%m.exe" (
         echo [ERROR] Executable %%m.exe not found
