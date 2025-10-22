@@ -11,10 +11,10 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Configure RMVL by CMake 
+    - name: Configure the project by CMake 
       run: cmake -B ${{ github.workspace }}/build -DBUILD_OPEN62541=ON
 
-    - name: Build RMVL
+    - name: "Run build script: Visual Studio"
       run: cmake --build ${{ github.workspace }}/build --parallel 4 --config Release
 
     - name: Package RMVL

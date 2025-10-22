@@ -22,24 +22,24 @@ jobs:
         sudo cp -r include/* /usr/local/include/onnxruntime
         sudo cp -r lib /usr/local
 
-    - name: Configure RMVL by CMake 
+    - name: Configure the project by CMake 
       # RMVL 1.x does not support Python, we also can use the CMake option -DBUILD_PYTHON=ON although it is not necessary
       run: cmake -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=ON -DBUILD_OPEN62541=ON
 
-    - name: Build RMVL
+    - name: "Run build script: Unix Makefile"
       run: cmake --build ${{ github.workspace }}/build --parallel 4
 
-    - name: Test RMVL
+    - name: "Run test script: ctest"
       run: ctest --test-dir ${{ github.workspace }}/build
 
-    - name: Install RMVL
+    - name: Install the project by CMake
       run: sudo cmake --install ${{ github.workspace }}/build
 
-    - name: (Deploy test) Checkout repository
+    - name: "Deploy: Checkout repository"
       uses: actions/checkout@v4
       with:
         repository: cv-rmvl/ci-workflow
         path: deploy-repo
 
-    - name: (Deploy test) Test
+    - name: "Deploy: Run deploy script"
       run: bash deploy-repo/deploy/scripts/build.sh

@@ -22,11 +22,11 @@ jobs:
         sudo cp -r include/* /usr/local/include/onnxruntime
         sudo cp -r lib /usr/local
 
-    - name: Configure RMVL by CMake 
+    - name: Configure the project by CMake 
       # RMVL 1.x does not support Python, we also can use the CMake option -DBUILD_PYTHON=ON although it is not necessary
       run: cmake -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=Release -DBUILD_EXTRA=ON -DBUILD_OPEN62541=ON
 
-    - name: Build RMVL
+    - name: "Run build script: Unix Makefile"
       run: cmake --build ${{ github.workspace }}/build --parallel 4
 
     - name: Package RMVL

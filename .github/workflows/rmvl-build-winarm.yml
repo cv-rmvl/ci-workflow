@@ -11,23 +11,23 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Configure RMVL by CMake 
+    - name: Configure the project by CMake 
       run: cmake -B ${{ github.workspace }}/build -DBUILD_OPEN62541=ON -DBUILD_TESTS=ON
 
-    - name: Build RMVL
+    - name: "Run build script: Visual Studio"
       run: cmake --build ${{ github.workspace }}/build --parallel 4 --config Release
 
-    - name: Test RMVL
+    - name: "Run test script: ctest"
       run: ctest --test-dir ${{ github.workspace }}/build
 
-    - name: Install RMVL
+    - name: Install the project by CMake
       run: cmake --install ${{ github.workspace }}/build
 
-    # - name: (Deploy test) Checkout repository
+    # - name: "Deploy: Checkout repository"
     #   uses: actions/checkout@v4
     #   with:
     #     repository: cv-rmvl/ci-workflow
     #     path: deploy-repo
 
-    # - name: (Deploy test) Test
+    # - name: "Deploy: Run deploy script"
     #   run: deploy-repo/deploy/scripts/build.bat
