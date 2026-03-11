@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-22.04-arm
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
 
     - name: Install dependencies
       run: |

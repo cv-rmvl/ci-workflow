@@ -1,3 +1,47 @@
+# 配置文件
 .vscode
+.vs
+.idea
 .cache
-build
+
+# 编译文件
+*build*
+CMakeLists.txt.user
+CMakeCache.txt
+CMakeFiles
+devel
+*.o
+*.so
+*.a
+
+# 媒体文件
+*.mp4
+*.avi
+*.flv
+*.csv
+
+# 图像文件
+*.png
+*.jpg
+*.jpeg
+!rmvl-logo*
+!doc/img/**
+
+# 模型文件
+*.onnx
+*.pth
+*.xml
+
+# 日志数据类文件
+log
+Camera
+
+# 自动生成的文件
+_rm_codegen_*
+rmvlpara/
+rmvlmsg/
+!include/rmvlpara
+
+# 其他文件
+*.zip
+*.tar.*

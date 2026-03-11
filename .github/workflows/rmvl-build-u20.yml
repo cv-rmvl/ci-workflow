@@ -12,7 +12,7 @@ jobs:
 
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
 
     - name: Configure the project by CMake
       # RMVL 1.x does not support Python, we also can use the CMake option -DBUILD_PYTHON=ON although it is not necessary
@@ -28,7 +28,7 @@ jobs:
       run: cmake --install ${{ github.workspace }}/build
 
     - name: "Deploy: Checkout repository"
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         repository: cv-rmvl/ci-workflow
         path: deploy-repo

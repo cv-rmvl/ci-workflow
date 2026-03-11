@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
     - name: Checkout repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
 
     - name: Install dependencies
       run: |
@@ -36,7 +36,7 @@ jobs:
       run: sudo cmake --install ${{ github.workspace }}/build
 
     - name: "Deploy: Checkout repository"
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
       with:
         repository: cv-rmvl/ci-workflow
         path: deploy-repo

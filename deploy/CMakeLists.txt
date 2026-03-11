@@ -7,6 +7,8 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(RMVL REQUIRED)
 
+add_subdirectory(modules)
+
 file(GLOB cpp_files "src/*.cpp")
 
 foreach(f ${cpp_files})
