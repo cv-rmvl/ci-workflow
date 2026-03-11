@@ -35,7 +35,7 @@ jobs:
         cpack -G "DEB;TGZ" -D CPACK_PACKAGE_DIRECTORY=${{ github.workspace }}/build/out-package
 
     - name: Upload RMVL package
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v6
       with:
         name: rmvl-u22-package
         path: |
