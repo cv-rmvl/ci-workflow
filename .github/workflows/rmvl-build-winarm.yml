@@ -18,16 +18,16 @@ jobs:
       run: cmake --build ${{ github.workspace }}/build --parallel 4 --config Release
 
     - name: "Run test script: ctest"
-      run: ctest --test-dir ${{ github.workspace }}/build
+      run: ctest --test-dir ${{ github.workspace }}/build --build-config Release
 
     - name: Install the project by CMake
-      run: cmake --install ${{ github.workspace }}/build
+      run: cmake --install ${{ github.workspace }}/build --config Release
 
-    # - name: "Deploy: Checkout repository"
-    #   uses: actions/checkout@v6
-    #   with:
-    #     repository: cv-rmvl/ci-workflow
-    #     path: deploy-repo
+    - name: "[Deploy] Checkout repository"
+      uses: actions/checkout@v6
+      with:
+        repository: cv-rmvl/ci-workflow
+        path: deploy-repo
 
-    # - name: "Deploy: Run deploy script"
-    #   run: deploy-repo/deploy/scripts/build.bat
+    - name: "[Deploy] Run deploy script"
+      run: .\deploy-repo\deploy\scripts\build.bat Release

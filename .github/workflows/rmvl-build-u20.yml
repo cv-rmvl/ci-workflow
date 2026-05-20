@@ -27,11 +27,11 @@ jobs:
     - name: Install the project by CMake
       run: cmake --install ${{ github.workspace }}/build
 
-    - name: "Deploy: Checkout repository"
+    - name: "[Deploy] Checkout repository"
       uses: actions/checkout@v6
       with:
         repository: cv-rmvl/ci-workflow
         path: deploy-repo
 
-    - name: "Deploy: Run deploy script"
+    - name: "[Deploy] Run deploy script"
       run: bash deploy-repo/deploy/scripts/build.sh

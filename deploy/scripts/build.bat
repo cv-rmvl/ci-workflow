@@ -1,46 +1,64 @@
 @echo off
 setlocal enabledelayedexpansion
 
-REM Get the directory of the script and go up one level
+set "config=%~1"
+if "%config%"=="" set "config=Release"
+
 for %%i in ("%~dp0..") do set "ws=%%~fi"
-
 cd /d "%ws%"
+if errorlevel 1 (
+    echo [FAIL] Failed to enter workspace
+    exit /b 1
+)
 
-REM Remove build directory if it exists
 if exist "build" (
     echo [INFO] Removing existing build directory ...
     rmdir /s /q "build"
+    if errorlevel 1 (
+        echo [FAIL] Failed to remove existing build directory
+        exit /b 1
+    )
 )
 
 echo [INFO] Configure project ...
 mkdir build
+if errorlevel 1 (
+    echo [FAIL] Failed to create build directory
+    exit /b 1
+)
 cd build
+if errorlevel 1 (
+    echo [FAIL] Failed to enter build directory
+    exit /b 1
+)
 
 cmake ..
-if %errorlevel% neq 0 (
-    echo [ERROR] Failed to configure project
+if errorlevel 1 (
+    echo [FAIL] Failed to configure project
     exit /b 1
 )
 echo [PASS] Configure project done
 
 echo [INFO] Build project ...
-cmake --build .
-if %errorlevel% neq 0 (
-    echo [ERROR] Failed to build project
+cmake --build . --config "%config%"
+if errorlevel 1 (
+    echo [FAIL] Failed to build project
     exit /b 1
 )
 echo [PASS] Build project done
 
-REM Run executables using for loop
 for %%m in (inc link) do (
     echo [INFO] Run %%m ...
-    if not exist "%%m.exe" (
-        echo [ERROR] Executable %%m.exe not found
+    set "exe="
+    if exist "%%m.exe" set "exe=%%m.exe"
+    if not defined exe if exist "%config%\%%m.exe" set "exe=%config%\%%m.exe"
+    if not defined exe (
+        echo [FAIL] Executable %%m.exe not found - build may have failed
         exit /b 1
     )
-    %%m.exe
-    if !errorlevel! neq 0 (
-        echo [ERROR] Failed to run %%m
+    "!exe!"
+    if errorlevel 1 (
+        echo [FAIL] Failed to run %%m
         exit /b 1
     )
 )
