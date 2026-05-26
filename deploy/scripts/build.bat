@@ -4,6 +4,23 @@ setlocal enabledelayedexpansion
 set "config=%~1"
 if "%config%"=="" set "config=Release"
 
+set "rmvl_prefix=%~2"
+set "rmvl_dir="
+if not "%rmvl_prefix%"=="" (
+    if not exist "%rmvl_prefix%" (
+        echo [FAIL] RMVL install prefix not found: %rmvl_prefix%
+        exit /b 1
+    )
+    for /r "%rmvl_prefix%" %%i in (RMVLConfig.cmake) do (
+        if exist "%%~fi" if not defined rmvl_dir for %%j in ("%%~dpi.") do set "rmvl_dir=%%~fj"
+    )
+    if not defined rmvl_dir (
+        echo [FAIL] RMVLConfig.cmake not found under: %rmvl_prefix%
+        exit /b 1
+    )
+    echo [INFO] Found RMVL package config: !rmvl_dir!\RMVLConfig.cmake
+)
+
 for %%i in ("%~dp0..") do set "ws=%%~fi"
 cd /d "%ws%"
 if errorlevel 1 (
@@ -32,7 +49,11 @@ if errorlevel 1 (
     exit /b 1
 )
 
-cmake ..
+if defined rmvl_dir (
+    cmake .. -DRMVL_DIR="!rmvl_dir!"
+) else (
+    cmake ..
+)
 if errorlevel 1 (
     echo [FAIL] Failed to configure project
     exit /b 1

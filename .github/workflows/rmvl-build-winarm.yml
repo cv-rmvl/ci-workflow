@@ -30,4 +30,4 @@ jobs:
         path: deploy-repo
 
     - name: "[Deploy] Run deploy script"
-      run: .\deploy-repo\deploy\scripts\build.bat Release
+      run: .\deploy-repo\deploy\scripts\build.bat Release "${{ github.workspace }}\build\install"
