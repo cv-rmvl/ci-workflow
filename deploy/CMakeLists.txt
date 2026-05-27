@@ -9,10 +9,14 @@ find_package(RMVL REQUIRED)
 
 add_subdirectory(modules)
 
-file(GLOB cpp_files "src/*.cpp")
+enable_testing()
+
+set(vers "${RMVL_VERSION_MAJOR}.x")
+file(GLOB cpp_files "src/${vers}/*.cpp")
 
 foreach(f ${cpp_files})
   get_filename_component(n ${f} NAME_WE)
   add_executable(${n} ${f})
   target_link_libraries(${n} PRIVATE ${RMVL_LIBS})
+  add_test(NAME ${n} COMMAND ${n})
 endforeach()

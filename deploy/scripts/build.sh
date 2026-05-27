@@ -37,13 +37,8 @@ if ! cmake --build . | fmt; then
 fi
 pass "Build project done"
 
-for m in inc link; do
-  info "Run $m ..."
-  if [ ! -f "./$m" ]; then
-    fail "Executable $m not found - build may have failed"
-  fi
-  if ! ./$m | fmt; then
-    fail "Failed to run $m"
-  fi
-done
-pass "Run all deployment test done"
+info "Run deployment tests ..."
+if ! ctest --output-on-failure | fmt; then
+  fail "Failed to run deployment tests"
+fi
+pass "Run all deployment tests done"

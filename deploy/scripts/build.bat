@@ -68,20 +68,11 @@ if errorlevel 1 (
 )
 echo [PASS] Build project done
 
-for %%m in (inc link) do (
-    echo [INFO] Run %%m ...
-    set "exe="
-    if exist "%%m.exe" set "exe=%%m.exe"
-    if not defined exe if exist "%config%\%%m.exe" set "exe=%config%\%%m.exe"
-    if not defined exe (
-        echo [FAIL] Executable %%m.exe not found - build may have failed
-        exit /b 1
-    )
-    "!exe!"
-    if errorlevel 1 (
-        echo [FAIL] Failed to run %%m
-        exit /b 1
-    )
+echo [INFO] Run deployment tests ...
+ctest --output-on-failure -C "%config%"
+if errorlevel 1 (
+    echo [FAIL] Failed to run deployment tests
+    exit /b 1
 )
 
-echo [PASS] Run all deployment test done
+echo [PASS] Run all deployment tests done
