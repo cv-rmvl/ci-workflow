@@ -57,17 +57,6 @@ jobs:
             fi
           done
 
-      - name: Generate SHA256 checksums
-        id: sha256gen
-        run: |
-          cd artifacts
-          find . -maxdepth 1 -type f ! -name "checksums.txt" -exec sha256sum {} \; | sort > checksums.txt
-          echo -e "\033[32mGenerated checksums:\033[0m"
-          cat checksums.txt
-          echo "sha256sums<<EOF" >> $GITHUB_OUTPUT
-          cat checksums.txt >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-
       - name: Create Release
         id: create_release
         uses: softprops/action-gh-release@v2
@@ -80,13 +69,7 @@ jobs:
             RMVL ${{ github.ref_name }} has been released
 
             :hammer_and_wrench: ChangeLog is [here](https://github.com/cv-rmvl/rmvl/wiki/ChangeLog#version-${{ steps.extract_version.outputs.version_id }})
-
-            ### SHA256 Checksums
-            ```
-            ${{ steps.sha256gen.outputs.sha256sums }}
-            ```
           files: |
             artifacts/*
-            !artifacts/checksums.txt
           draft: false
           prerelease: false
