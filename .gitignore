@@ -5,7 +5,7 @@
 .cache
 
 # 编译文件
-*build*
+build/
 CMakeLists.txt.user
 CMakeCache.txt
 CMakeFiles

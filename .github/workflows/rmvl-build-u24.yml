@@ -13,14 +13,18 @@ jobs:
 
     - name: Install dependencies
       run: |
+        echo "Installing dependencies by apt..."
         sudo apt update
         sudo apt install -y libeigen3-dev libopencv-dev python3-dev pybind11-dev
+        echo -e "\033[1;34mInstalling dependencies by apt done.\033[0m"
+        echo "Installing ONNX Runtime 1.18.1..."
         curl -sSL https://github.com/microsoft/onnxruntime/releases/download/v1.18.1/onnxruntime-linux-x64-1.18.1.tgz -o onnxruntime-linux-x64-1.18.1.tgz
         tar -xf onnxruntime-linux-x64-1.18.1.tgz
         sudo mkdir /usr/local/include/onnxruntime
         cd onnxruntime-linux-x64-1.18.1
         sudo cp -r include/* /usr/local/include/onnxruntime
         sudo cp -r lib /usr/local
+        echo -e "\033[1;34mInstalling ONNX Runtime 1.18.1 done.\033[0m"
 
     - name: Configure the project by CMake 
       # RMVL 1.x does not support Python, we also can use the CMake option -DBUILD_PYTHON=ON although it is not necessary
