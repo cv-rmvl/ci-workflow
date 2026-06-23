@@ -28,7 +28,7 @@ jobs:
 
     - name: Configure the project by CMake 
       # RMVL 1.x does not support Python, we also can use the CMake option -DBUILD_PYTHON=ON although it is not necessary
-      run: cmake -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=ON -DBUILD_OPEN62541=ON
+      run: cmake -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=ON -DBUILD_OPEN62541=ON -DBUILD_PYTHON=ON
 
     - name: "Run build script: Unix Makefile"
       run: cmake --build ${{ github.workspace }}/build --parallel 4
