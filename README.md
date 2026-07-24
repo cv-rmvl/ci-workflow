@@ -12,6 +12,20 @@ KDT Agent 使用 RMVL IO 模块的 `Webapp` 和 `HttpServer` 提供网页与文�
 
 ### 构建 Agent
 
+在构建 KDT Agent 前，请确保已经安装 RMVL，若尚未安装，请参考 [快速上手](https://cv-rmvl.github.io/quickstart/) 对应操作系统的教程进行安装。还是老样子，如果您在 Debian 系发行版上（例如 Ubuntu），可以使用如下的一键安装脚本安装 RMVL：
+
+```bash
+wget https://cv-rmvl.github.io/install -qO - | bash
+```
+
+此外，还需下载本仓库，可通过 Code/Download ZIP 下载整个仓库，或者使用 `git` 命令：
+
+```bash
+git clone https://github.com/cv-rmvl/ci-workflow.git
+```
+
+完成后，在项目根目录打开终端，执行以下命令：
+
 ```bash
 cmake -S kdt/agents -B build/agents
 cmake --build build/agents --parallel
