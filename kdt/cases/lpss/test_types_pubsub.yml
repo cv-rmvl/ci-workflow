@@ -1,0 +1,58 @@
+info: 【发布订阅】复杂消息结构的序列化与反序列化验证
+steps:
+  - name: fs_remove_recursive
+    args:
+      - - tmp-lpss-test-types-pubsub
+  - name: fs_create_dir
+    dep: true
+    args:
+      - - tmp-lpss-test-types-pubsub
+  - name: fs_write
+    dep: true
+    args:
+      - tmp-lpss-test-types-pubsub/expected.txt
+      - pass
+  - name: lpss_msg_testsub
+    dep: true
+    args:
+      - kdt_test_types_subscriber
+      - /kdt/test_types/pubsub
+      - tmp-lpss-test-types-pubsub/received.txt
+  - name: logic_wait
+    dep: true
+    args:
+      - 0.5
+  - name: lpss_msg_testpub
+    dep: true
+    args:
+      - kdt_test_types_publisher
+      - /kdt/test_types/pubsub
+      - 20
+  - name: logic_wait
+    dep: true
+    args:
+      - 0.5
+  - name: fs_slice
+    dep: true
+    args:
+      - tmp-lpss-test-types-pubsub/received.txt
+      - 1
+      - tmp-lpss-test-types-pubsub/first-result.txt
+  - name: fs_same
+    dep: true
+    args:
+      - tmp-lpss-test-types-pubsub/expected.txt
+      - tmp-lpss-test-types-pubsub/first-result.txt
+  - name: lpss_stop
+    args:
+      - msg.testpub
+      - SIGINT
+      - kdt_test_types_publisher
+  - name: lpss_stop
+    args:
+      - msg.testsub
+      - SIGINT
+      - kdt_test_types_subscriber
+  - name: fs_remove_recursive
+    args:
+      - - tmp-lpss-test-types-pubsub

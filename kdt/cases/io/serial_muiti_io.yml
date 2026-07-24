@@ -1,0 +1,194 @@
+info: 串口多次读写
+steps:
+  - name: fs_remove_recursive
+    dep: false
+    args:
+      - - tmp-serial
+  - name: serial_create
+    dep: true
+    args:
+      - tmp-serial/serial-multi-a
+      - tmp-serial/serial-multi-b
+  - name: fs_write
+    dep: true
+    args:
+      - tmp-serial/serial-multi-input.txt
+      - ''
+  - name: fs_write
+    dep: true
+    args:
+      - tmp-serial/serial-multi-expected.txt
+      - ''
+  - name: serial_multiread
+    dep: true
+    args:
+      - tmp-serial/serial-multi-b
+      - 115200
+      - tmp-serial/serial-multi-output.txt
+  - name: serial_multiwrite
+    dep: true
+    args:
+      - tmp-serial/serial-multi-a
+      - 115200
+      - tmp-serial/serial-multi-input.txt
+  - name: logic_wait
+    dep: true
+    args:
+      - 0.2
+  - name: fs_append
+    dep: true
+    args:
+      - tmp-serial/serial-multi-input.txt
+      - serial multi 01
+  - name: fs_append
+    dep: true
+    args:
+      - tmp-serial/serial-multi-expected.txt
+      - serial multi 01
+  - name: logic_wait
+    dep: true
+    args:
+      - 0.1
+  - name: fs_append
+    dep: true
+    args:
+      - tmp-serial/serial-multi-input.txt
+      - serial multi 02
+  - name: fs_append
+    dep: true
+    args:
+      - tmp-serial/serial-multi-expected.txt
+      - serial multi 02
+  - name: logic_wait
+    dep: true
+    args:
+      - 0.1
+  - name: fs_append
+    dep: true
+    args:
+      - tmp-serial/serial-multi-input.txt
+      - serial multi 03
+  - name: fs_append
+    dep: true
+    args:
+      - tmp-serial/serial-multi-expected.txt
+      - serial multi 03
+  - name: logic_wait
+    dep: true
+    args:
+      - 0.1
+  - name: fs_append
+    dep: true
+    args:
+      - tmp-serial/serial-multi-input.txt
+      - serial multi 04
+  - name: fs_append
+    dep: true
+    args:
+      - tmp-serial/serial-multi-expected.txt
+      - serial multi 04
+  - name: logic_wait
+    dep: true
+    args:
+      - 0.1
+  - name: fs_append
+    dep: true
+    args:
+      - tmp-serial/serial-multi-input.txt
+      - serial multi 05
+  - name: fs_append
+    dep: true
+    args:
+      - tmp-serial/serial-multi-expected.txt
+      - serial multi 05
+  - name: logic_wait
+    dep: true
+    args:
+      - 0.1
+  - name: fs_append
+    dep: true
+    args:
+      - tmp-serial/serial-multi-input.txt
+      - serial multi 06
+  - name: fs_append
+    dep: true
+    args:
+      - tmp-serial/serial-multi-expected.txt
+      - serial multi 06
+  - name: logic_wait
+    dep: true
+    args:
+      - 0.1
+  - name: fs_append
+    dep: true
+    args:
+      - tmp-serial/serial-multi-input.txt
+      - serial multi 07
+  - name: fs_append
+    dep: true
+    args:
+      - tmp-serial/serial-multi-expected.txt
+      - serial multi 07
+  - name: logic_wait
+    dep: true
+    args:
+      - 0.1
+  - name: fs_append
+    dep: true
+    args:
+      - tmp-serial/serial-multi-input.txt
+      - serial multi 08
+  - name: fs_append
+    dep: true
+    args:
+      - tmp-serial/serial-multi-expected.txt
+      - serial multi 08
+  - name: logic_wait
+    dep: true
+    args:
+      - 0.1
+  - name: fs_append
+    dep: true
+    args:
+      - tmp-serial/serial-multi-input.txt
+      - serial multi 09
+  - name: fs_append
+    dep: true
+    args:
+      - tmp-serial/serial-multi-expected.txt
+      - serial multi 09
+  - name: logic_wait
+    dep: true
+    args:
+      - 0.1
+  - name: fs_append
+    dep: true
+    args:
+      - tmp-serial/serial-multi-input.txt
+      - serial multi 10
+  - name: fs_append
+    dep: true
+    args:
+      - tmp-serial/serial-multi-expected.txt
+      - serial multi 10
+  - name: logic_wait
+    dep: true
+    args:
+      - 0.2
+  - name: serial_stop
+    dep: false
+    args: []
+  - name: fs_same
+    dep: true
+    args:
+      - tmp-serial/serial-multi-output.txt
+      - tmp-serial/serial-multi-expected.txt
+  - name: serial_remove
+    dep: false
+    args:
+      - tmp-serial/serial-multi-a
+      - tmp-serial/serial-multi-b
+  - name: fs_remove_recursive
+    dep: false
+    args:
+      - - tmp-serial

@@ -8,26 +8,43 @@ jobs:
     name: Build and test on Windows (ARM arch)
     runs-on: windows-11-arm
     steps:
-    - name: Checkout repository
+    - name: "[RMVL] Checkout repository"
       uses: actions/checkout@v6
 
-    - name: Configure the project by CMake 
+    - name: "[RMVL] Configure the project by CMake"
       run: cmake -B ${{ github.workspace }}/build -DBUILD_OPEN62541=ON -DBUILD_TESTS=ON
 
-    - name: "Run build script: Visual Studio"
-      run: cmake --build ${{ github.workspace }}/build --parallel 4 --config Release
+    - name: "[RMVL] Run build script: Visual Studio"
+      run: cmake --build ${{ github.workspace }}/build --parallel --config Release
 
-    - name: "Run test script: ctest"
+    - name: "[RMVL] Run test script: ctest"
       run: ctest --test-dir ${{ github.workspace }}/build --build-config Release
 
-    - name: Install the project by CMake
+    - name: "[RMVL] Install the project by CMake"
       run: cmake --install ${{ github.workspace }}/build --config Release
 
-    - name: "[Deploy] Checkout repository"
+    - name: "[KDT] Checkout repository"
       uses: actions/checkout@v6
       with:
         repository: cv-rmvl/ci-workflow
         path: deploy-repo
 
-    - name: "[Deploy] Run deploy script"
-      run: .\deploy-repo\deploy\scripts\build.bat Release "${{ github.workspace }}\build\install"
+    - name: "[KDT] Setup Python"
+      uses: actions/setup-python@v6
+      with:
+        python-version: "3.14"
+
+    - name: "[KDT] Install dependencies"
+      run: python -m pip install -r deploy-repo\kdt\requirements.txt
+
+    - name: "[KDT] Run testing script"
+      run: python deploy-repo\kdt\test.py ci_guardian --rmvl-dir="${{ github.workspace }}\build\install"
+
+    - name: "[KDT] Upload logs"
+      if: always()
+      uses: actions/upload-artifact@v7
+      with:
+        name: kdt-logs-windows-arm64
+        path: deploy-repo/kdt/tmp/*.log
+        if-no-files-found: ignore
+        retention-days: 3

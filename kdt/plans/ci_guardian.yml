@@ -1,0 +1,34 @@
+info: RMVL 持续集成门禁
+cases:
+  - case: io.serial_p2p
+    loop: 1
+  - case: io.serial_muiti_io
+    loop: 1
+  - case: codegen.para_test
+    loop: 1
+  - case: codegen.msg_test
+    loop: 1
+  - case: codegen.srv_test
+    loop: 1
+  - case: lpss.basic_pubsub_sub_first
+    loop: 1
+  - case: lpss.basic_pubsub_pub_first
+    loop: 1
+  - case: lpss.node_restart
+    loop: 1
+  - case: lpss.node_crash_recovery
+    loop: 1
+  - case: lpss.one_pub_multi_sub
+    loop: 1
+  - case: lpss.multi_pub_one_sub
+    loop: 1
+  - case: lpss.multi_pub_multi_sub
+    loop: 1
+  - case: lpss.test_types_pubsub
+    loop: 1
+  - case: lpss.basic_service
+    loop: 1
+  - case: lpss.service_restart
+    loop: 1
+  - case: lpss.test_types_service
+    loop: 1

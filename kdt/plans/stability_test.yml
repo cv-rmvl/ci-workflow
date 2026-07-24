@@ -1,0 +1,12 @@
+info: 稳定性测试
+cases:
+  - case: lpss.basic_pubsub_sub_first
+    loop: 20
+  - case: lpss.basic_pubsub_pub_first
+    loop: 20
+  - case: lpss.multi_pub_one_sub
+    loop: 10
+  - case: lpss.one_pub_multi_sub
+    loop: 10
+  - case: lpss.basic_service
+    loop: 15

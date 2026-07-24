@@ -11,19 +11,19 @@ jobs:
     name: Create Release note
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
+      - name: "[RMVL] Checkout repository"
         uses: actions/checkout@v6
 
-      - name: Extract version
+      - name: "[RMVL] Extract version"
         id: extract_version
         run: |
           version=${GITHUB_REF#refs/tags/}
           version_number=${version//./}
           echo "version_id=${version_number}" >> $GITHUB_OUTPUT
 
-      - name: Create Release
+      - name: "[RMVL] Create Release"
         id: create_release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:

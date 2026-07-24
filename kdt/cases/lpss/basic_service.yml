@@ -1,0 +1,71 @@
+info: 【服务】请求响应功能验证
+steps:
+  - name: fs_remove_recursive
+    args:
+      - - tmp-lpss-basic-service
+  - name: fs_create_dir
+    dep: true
+    args:
+      - - tmp-lpss-basic-service
+  - name: lpss_srv_strservice
+    dep: true
+    args:
+      - kdt_basic_setbool_service
+      - /kdt/basic/set_enabled
+  - name: logic_wait
+    dep: true
+    args:
+      - 0.2
+  - name: lpss_srv_strclient
+    dep: true
+    args:
+      - kdt_basic_setbool_true_client
+      - /kdt/basic/set_enabled
+      - true
+      - tmp-lpss-basic-service/true-response.txt
+      - 3000
+  - name: fs_write
+    dep: true
+    args:
+      - tmp-lpss-basic-service/true-expected.txt
+      - |-
+        success: true
+        message: enabled
+  - name: fs_same
+    dep: true
+    args:
+      - tmp-lpss-basic-service/true-expected.txt
+      - tmp-lpss-basic-service/true-response.txt
+  - name: lpss_srv_strclient
+    dep: true
+    args:
+      - kdt_basic_setbool_false_client
+      - /kdt/basic/set_enabled
+      - false
+      - tmp-lpss-basic-service/false-response.txt
+      - 3000
+  - name: fs_write
+    dep: true
+    args:
+      - tmp-lpss-basic-service/false-expected.txt
+      - |-
+        success: true
+        message: disabled
+  - name: fs_same
+    dep: true
+    args:
+      - tmp-lpss-basic-service/false-expected.txt
+      - tmp-lpss-basic-service/false-response.txt
+  - name: lpss_stop
+    args:
+      - srv.service
+      - SIGINT
+      - kdt_basic_setbool_service
+  - name: lpss_srv_timeout
+    args:
+      - kdt_setbool_timeout_client
+      - /kdt/timeout/nonexistent_set_bool
+      - 300
+  - name: fs_remove_recursive
+    args:
+      - - tmp-lpss-basic-service

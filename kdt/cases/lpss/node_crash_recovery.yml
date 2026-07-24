@@ -1,0 +1,144 @@
+info: 【节点管理】节点异常退出后通过心跳清理并恢复通信
+steps:
+  - name: fs_remove_recursive
+    args:
+      - - tmp-lpss-node-crash-recovery
+  - name: fs_create_dir
+    dep: true
+    args:
+      - - tmp-lpss-node-crash-recovery
+
+  # Writer 异常退出：Subscriber 始终存活，等待心跳清理后重新发现 Writer。
+  - name: lpss_msg_strsub
+    dep: true
+    args:
+      - kdt_crash_writer_observer
+      - /kdt/node/crash/writer
+      - tmp-lpss-node-crash-recovery/writer-received.txt
+  - name: logic_wait
+    dep: true
+    args:
+      - 0.2
+  - name: lpss_msg_strpub
+    dep: true
+    args:
+      - kdt_crash_writer
+      - /kdt/node/crash/writer
+      - before writer crash
+      - 20
+  - name: logic_wait
+    dep: true
+    args:
+      - 0.7
+  - name: fs_contains_lines
+    dep: true
+    args:
+      - tmp-lpss-node-crash-recovery/writer-received.txt
+      - - before writer crash
+  - name: lpss_stop
+    args:
+      - msg.strpub
+      - SIGKILL
+      - kdt_crash_writer
+  - name: logic_wait
+    dep: true
+    args:
+      - 1
+  - name: lpss_msg_strpub
+    dep: true
+    args:
+      - kdt_crash_writer
+      - /kdt/node/crash/writer
+      - after writer recovery
+      - 20
+  - name: logic_wait
+    dep: true
+    args:
+      - 0.7
+  - name: lpss_stop
+    args:
+      - msg.strpub
+      - SIGINT
+      - kdt_crash_writer
+  - name: lpss_stop
+    args:
+      - msg.strsub
+      - SIGINT
+      - kdt_crash_writer_observer
+  - name: fs_contains_lines
+    dep: true
+    args:
+      - tmp-lpss-node-crash-recovery/writer-received.txt
+      - - before writer crash
+        - after writer recovery
+
+  # Reader 异常退出：Publisher 始终存活，等待心跳清理后重新发现 Reader。
+  - name: lpss_msg_strpub
+    dep: true
+    args:
+      - kdt_crash_reader_source
+      - /kdt/node/crash/reader
+      - reader recovery message
+      - 20
+  - name: logic_wait
+    dep: true
+    args:
+      - 0.2
+  - name: lpss_msg_strsub
+    dep: true
+    args:
+      - kdt_crash_reader
+      - /kdt/node/crash/reader
+      - tmp-lpss-node-crash-recovery/reader-before.txt
+  - name: logic_wait
+    dep: true
+    args:
+      - 0.7
+  - name: fs_contains_lines
+    dep: true
+    args:
+      - tmp-lpss-node-crash-recovery/reader-before.txt
+      - - reader recovery message
+  - name: lpss_stop
+    args:
+      - msg.strsub
+      - SIGKILL
+      - kdt_crash_reader
+  - name: logic_wait
+    dep: true
+    args:
+      - 1
+  - name: lpss_msg_strsub
+    dep: true
+    args:
+      - kdt_crash_reader
+      - /kdt/node/crash/reader
+      - tmp-lpss-node-crash-recovery/reader-after.txt
+  - name: logic_wait
+    dep: true
+    args:
+      - 0.7
+  - name: lpss_stop
+    args:
+      - msg.strsub
+      - SIGINT
+      - kdt_crash_reader
+  - name: lpss_stop
+    args:
+      - msg.strpub
+      - SIGINT
+      - kdt_crash_reader_source
+  - name: fs_contains_lines
+    dep: true
+    args:
+      - tmp-lpss-node-crash-recovery/reader-before.txt
+      - - reader recovery message
+  - name: fs_contains_lines
+    dep: true
+    args:
+      - tmp-lpss-node-crash-recovery/reader-after.txt
+      - - reader recovery message
+
+  - name: fs_remove_recursive
+    args:
+      - - tmp-lpss-node-crash-recovery

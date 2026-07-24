@@ -1,0 +1,80 @@
+info: 【发布订阅】1Pub-NSub 单发布者多订阅者功能验证
+steps:
+  - name: fs_remove_recursive
+    args:
+      - - tmp-lpss-one-pub-multi-sub
+  - name: fs_create_dir
+    dep: true
+    args:
+      - - tmp-lpss-one-pub-multi-sub
+  - name: lpss_msg_strsub
+    dep: true
+    args:
+      - kdt_one_pub_subscriber_1
+      - /kdt/pubsub/one-pub-multi-sub
+      - tmp-lpss-one-pub-multi-sub/subscriber-1.txt
+  - name: lpss_msg_strsub
+    dep: true
+    args:
+      - kdt_one_pub_subscriber_2
+      - /kdt/pubsub/one-pub-multi-sub
+      - tmp-lpss-one-pub-multi-sub/subscriber-2.txt
+  - name: lpss_msg_strsub
+    dep: true
+    args:
+      - kdt_one_pub_subscriber_3
+      - /kdt/pubsub/one-pub-multi-sub
+      - tmp-lpss-one-pub-multi-sub/subscriber-3.txt
+  - name: logic_wait
+    dep: true
+    args:
+      - 0.2
+  - name: lpss_msg_strpub
+    dep: true
+    args:
+      - kdt_one_pub_publisher
+      - /kdt/pubsub/one-pub-multi-sub
+      - KDT LPSS one publisher to multiple subscribers
+      - 20
+  - name: logic_wait
+    dep: true
+    args:
+      - 0.5
+  - name: fs_contains_lines
+    dep: true
+    args:
+      - tmp-lpss-one-pub-multi-sub/subscriber-1.txt
+      - - KDT LPSS one publisher to multiple subscribers
+  - name: fs_contains_lines
+    dep: true
+    args:
+      - tmp-lpss-one-pub-multi-sub/subscriber-2.txt
+      - - KDT LPSS one publisher to multiple subscribers
+  - name: fs_contains_lines
+    dep: true
+    args:
+      - tmp-lpss-one-pub-multi-sub/subscriber-3.txt
+      - - KDT LPSS one publisher to multiple subscribers
+  - name: lpss_stop
+    args:
+      - msg.strpub
+      - SIGINT
+      - kdt_one_pub_publisher
+  - name: lpss_stop
+    args:
+      - msg.strsub
+      - SIGINT
+      - kdt_one_pub_subscriber_1
+  - name: lpss_stop
+    args:
+      - msg.strsub
+      - SIGINT
+      - kdt_one_pub_subscriber_2
+  - name: lpss_stop
+    args:
+      - msg.strsub
+      - SIGINT
+      - kdt_one_pub_subscriber_3
+  - name: fs_remove_recursive
+    args:
+      - - tmp-lpss-one-pub-multi-sub

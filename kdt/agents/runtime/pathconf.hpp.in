@@ -1,0 +1,10 @@
+#pragma once
+
+#include <string>
+
+namespace path {
+
+//! KDT 根路径
+inline const std::string root = "@KDT_ROOT_PATH@";
+
+} // namespace path

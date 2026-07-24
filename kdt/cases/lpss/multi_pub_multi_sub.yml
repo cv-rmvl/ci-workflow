@@ -1,0 +1,130 @@
+info: 【发布订阅】NPub-NSub 多发布者多订阅者功能验证
+steps:
+  - name: fs_remove_recursive
+    args:
+      - - tmp-lpss-multi-pub-multi-sub
+  - name: fs_create_dir
+    dep: true
+    args:
+      - - tmp-lpss-multi-pub-multi-sub
+
+  - name: lpss_msg_strsub
+    dep: true
+    args:
+      - kdt_multi_pub_multi_subscriber_1
+      - /kdt/pubsub/multi-pub-multi-sub
+      - tmp-lpss-multi-pub-multi-sub/subscriber-1.txt
+  - name: lpss_msg_strsub
+    dep: true
+    args:
+      - kdt_multi_pub_multi_subscriber_2
+      - /kdt/pubsub/multi-pub-multi-sub
+      - tmp-lpss-multi-pub-multi-sub/subscriber-2.txt
+  - name: lpss_msg_strsub
+    dep: true
+    args:
+      - kdt_multi_pub_multi_subscriber_3
+      - /kdt/pubsub/multi-pub-multi-sub
+      - tmp-lpss-multi-pub-multi-sub/subscriber-3.txt
+  - name: logic_wait
+    dep: true
+    args:
+      - 0.2
+
+  - name: lpss_msg_strpub
+    dep: true
+    args:
+      - kdt_multi_pub_multi_publisher_1
+      - /kdt/pubsub/multi-pub-multi-sub
+      - KDT LPSS multi publisher 1
+      - 20
+  - name: lpss_msg_strpub
+    dep: true
+    args:
+      - kdt_multi_pub_multi_publisher_2
+      - /kdt/pubsub/multi-pub-multi-sub
+      - KDT LPSS multi publisher 2
+      - 20
+  - name: lpss_msg_strpub
+    dep: true
+    args:
+      - kdt_multi_pub_multi_publisher_3
+      - /kdt/pubsub/multi-pub-multi-sub
+      - KDT LPSS multi publisher 3
+      - 20
+  - name: logic_wait
+    dep: true
+    args:
+      - 0.7
+
+  - name: fs_unique_count
+    dep: true
+    args:
+      - tmp-lpss-multi-pub-multi-sub/subscriber-1.txt
+      - 3
+  - name: fs_contains_lines
+    dep: true
+    args:
+      - tmp-lpss-multi-pub-multi-sub/subscriber-1.txt
+      - - KDT LPSS multi publisher 1
+        - KDT LPSS multi publisher 2
+        - KDT LPSS multi publisher 3
+  - name: fs_unique_count
+    dep: true
+    args:
+      - tmp-lpss-multi-pub-multi-sub/subscriber-2.txt
+      - 3
+  - name: fs_contains_lines
+    dep: true
+    args:
+      - tmp-lpss-multi-pub-multi-sub/subscriber-2.txt
+      - - KDT LPSS multi publisher 1
+        - KDT LPSS multi publisher 2
+        - KDT LPSS multi publisher 3
+  - name: fs_unique_count
+    dep: true
+    args:
+      - tmp-lpss-multi-pub-multi-sub/subscriber-3.txt
+      - 3
+  - name: fs_contains_lines
+    dep: true
+    args:
+      - tmp-lpss-multi-pub-multi-sub/subscriber-3.txt
+      - - KDT LPSS multi publisher 1
+        - KDT LPSS multi publisher 2
+        - KDT LPSS multi publisher 3
+
+  - name: lpss_stop
+    args:
+      - msg.strpub
+      - SIGINT
+      - kdt_multi_pub_multi_publisher_1
+  - name: lpss_stop
+    args:
+      - msg.strpub
+      - SIGINT
+      - kdt_multi_pub_multi_publisher_2
+  - name: lpss_stop
+    args:
+      - msg.strpub
+      - SIGINT
+      - kdt_multi_pub_multi_publisher_3
+  - name: lpss_stop
+    args:
+      - msg.strsub
+      - SIGINT
+      - kdt_multi_pub_multi_subscriber_1
+  - name: lpss_stop
+    args:
+      - msg.strsub
+      - SIGINT
+      - kdt_multi_pub_multi_subscriber_2
+  - name: lpss_stop
+    args:
+      - msg.strsub
+      - SIGINT
+      - kdt_multi_pub_multi_subscriber_3
+
+  - name: fs_remove_recursive
+    args:
+      - - tmp-lpss-multi-pub-multi-sub

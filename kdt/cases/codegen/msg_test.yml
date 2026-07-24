@@ -1,0 +1,67 @@
+info: 【代码生成】Msg 功能验证
+steps:
+  - name: fs_remove_recursive
+    args:
+      - - tmp-cgmsg
+  - name: fs_create_dir
+    dep: true
+    args:
+      - - tmp-cgmsg/tmpmsg/msg
+  - name: fs_write
+    dep: true
+    args:
+      - tmp-cgmsg/CMakeLists.txt
+      - |-
+        cmake_minimum_required(VERSION 3.16)
+        project(kdt-cgtmp)
+        find_package(RMVL REQUIRED)
+        add_subdirectory(tmpmsg)
+        rmvl_add_exe(kdt-cgtmp SOURCES kdt-cgtmp.cpp DEPENDS tmpmsg EXTERNAL fmt)
+        add_custom_target(kdt-cgtmp-run COMMAND $<TARGET_FILE:kdt-cgtmp> DEPENDS kdt-cgtmp USES_TERMINAL VERBATIM)
+  - name: fs_write
+    dep: true
+    args:
+      - tmp-cgmsg/kdt-cgtmp.cpp
+      - |-
+        #include <cstddef>
+        #include <fmt/format.h>
+        #include "rmvlmsg/tmpmsg.hpp"
+
+        using namespace rm;
+
+        int main() {
+            msg::Tmpmsg x{};
+            x.a = 1;
+            x.b = "str";
+            const auto data = x.serialize();
+            for (std::size_t i = 0; i < data.size(); ++i)
+                fmt::print("{}{:02x}", i == 0 ? "" : " ", static_cast<uint8_t>(data[i]));
+            fmt::println("");
+        }
+  - name: fs_write
+    dep: true
+    args:
+      - tmp-cgmsg/tmpmsg/msg/Tmpmsg.msg
+      - |-
+        int32 a
+        string b
+  - name: fs_write
+    dep: true
+    args:
+      - tmp-cgmsg/tmpmsg/CMakeLists.txt
+      - |-
+        rmvl_generate_msg(Tmpmsg)
+        rmvl_add_module(tmpmsg DEPENDS core)
+  - name: fs_command
+    dep: true
+    args:
+      - tmp-cgmsg
+      - cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+  - name: fs_command
+    dep: true
+    args:
+      - tmp-cgmsg
+      - cmake --build build --config Release --target kdt-cgtmp-run --parallel
+  - name: fs_remove_recursive
+    args:
+      - - tmp-cgmsg

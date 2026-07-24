@@ -1,0 +1,66 @@
+info: 【代码生成】Para 功能验证
+steps:
+  - name: fs_remove_recursive
+    args:
+      - - tmp-cgpara
+  - name: fs_create_dir
+    dep: true
+    args:
+      - - tmp-cgpara/ts/param
+  - name: fs_write
+    dep: true
+    args:
+      - tmp-cgpara/CMakeLists.txt
+      - |-
+        cmake_minimum_required(VERSION 3.16)
+        project(kdt-cgtmp)
+        find_package(RMVL REQUIRED)
+        add_subdirectory(ts)
+        rmvl_add_exe(kdt-cgtmp SOURCES kdt-cgtmp.cpp DEPENDS ts)
+        target_compile_definitions(kdt-cgtmp PRIVATE "PROJECT_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}\"")
+        add_custom_target(kdt-cgtmp-run COMMAND $<TARGET_FILE:kdt-cgtmp> DEPENDS kdt-cgtmp USES_TERMINAL VERBATIM)
+  - name: fs_write
+    dep: true
+    args:
+      - tmp-cgpara/t.yml
+      - |-
+        %YAML:1.0
+        ---
+        a: 2
+        b: 3.0
+  - name: fs_write
+    dep: true
+    args:
+      - tmp-cgpara/kdt-cgtmp.cpp
+      - |-
+        #include <cstdio>
+        #include "rmvlpara/ts.hpp"
+        using namespace rm; int main() { if (para::ts_param.a != 1 || para::ts_param.b != 2.0) return -1; std::string para_path =
+        PROJECT_PATH; para::ts_param.read(para_path + "/t.yml"); if (para::ts_param.a != 2 || para::ts_param.b != 3.0) return -1; }
+  - name: fs_write
+    dep: true
+    args:
+      - tmp-cgpara/ts/param/ts.para
+      - |-
+        int32_t a = 1  # test: a
+        double b = 2.0 # test: b
+  - name: fs_write
+    dep: true
+    args:
+      - tmp-cgpara/ts/CMakeLists.txt
+      - |-
+        rmvl_generate_para(ts)
+        rmvl_add_module(ts DEPENDS core)
+  - name: fs_command
+    dep: true
+    args:
+      - tmp-cgpara
+      - cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+  - name: fs_command
+    dep: true
+    args:
+      - tmp-cgpara
+      - cmake --build build --config Release --target kdt-cgtmp-run --parallel
+  - name: fs_remove_recursive
+    args:
+      - - tmp-cgpara

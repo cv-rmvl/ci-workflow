@@ -8,10 +8,10 @@ jobs:
     name: Package on Ubuntu 24.04 (ARM arch)
     runs-on: ubuntu-24.04-arm
     steps:
-    - name: Checkout repository
+    - name: "[RMVL] Checkout repository"
       uses: actions/checkout@v6
 
-    - name: Install dependencies
+    - name: "[RMVL] Install dependencies"
       run: |
         sudo apt update
         sudo apt install -y libeigen3-dev libopencv-dev pybind11-dev
@@ -22,20 +22,20 @@ jobs:
         sudo cp -r include/* /usr/local/include/onnxruntime
         sudo cp -r lib /usr/local
 
-    - name: Configure the project by CMake 
+    - name: "[RMVL] Configure the project by CMake"
       # RMVL 1.x does not support Python, we also can use the CMake option -DBUILD_PYTHON=ON although it is not necessary
       run: cmake -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=Release -DBUILD_OPEN62541=ON -DBUILD_PYTHON=ON
 
-    - name: "Run build script: Unix Makefile"
-      run: cmake --build ${{ github.workspace }}/build --parallel 4
+    - name: "[RMVL] Run build script: Unix Makefile"
+      run: cmake --build ${{ github.workspace }}/build --parallel
 
-    - name: Package RMVL
+    - name: "[RMVL] Package RMVL"
       run: |
         cd ${{ github.workspace }}/build
         cpack -G "DEB;TGZ" -D CPACK_PACKAGE_DIRECTORY=${{ github.workspace }}/build/out-package
 
-    - name: Upload RMVL package
-      uses: actions/upload-artifact@v6
+    - name: "[RMVL] Upload RMVL package"
+      uses: actions/upload-artifact@v7
       with:
         name: rmvl-u24arm-package
         path: |

@@ -1,0 +1,332 @@
+logic_wait:
+  name: 等待固定时间
+  component: core.logic.wait
+  args:
+    - name: 等待时间，单位为秒
+      type: float
+fs_same:
+  name: 判断两个文件内容是否相等
+  info: 不区分文件创建时间、权限等属性，仅比较文件内容是否相同
+  component: core.fs.same
+  args:
+    - name: 第一个文件路径
+      type: str
+    - name: 第二个文件路径
+      type: str
+fs_unsame:
+  name: 判断两个文件内容是否不相等
+  info: 不区分文件创建时间、权限等属性，仅比较文件内容是否不同
+  component: core.fs.different
+  args:
+    - name: 第一个文件路径
+      type: str
+    - name: 第二个文件路径
+      type: str
+fs_unique_count:
+  name: 判断文件中不同行的数量
+  info: 使用 UTF-8 编码按行读取文件，仅移除换行符并统计不同行的数量；重复行只计为一种，空行参与统计，实际数量与期望值不同时抛出异常
+  component: core.fs.unique_count
+  args:
+    - name: 文件路径
+      type: str
+    - name: 期望的不同行数量
+      type: int
+fs_contains_lines:
+  name: 判断文件是否包含指定行
+  info: 使用 UTF-8 编码按行读取文件，给定列表中的每个字符串都必须与文件中的某一完整行匹配；顺序和重复次数不参与判断，允许文件存在额外行
+  component: core.fs.contains_lines
+  args:
+    - name: 文件路径
+      type: str
+    - name: 必须存在的完整行
+      type: List[str]
+fs_slice:
+  name: 提取文件指定行
+  info: 使用 UTF-8 编码读取源文件并提取指定行，行号从 1 开始。提取结果将覆盖写入输出文件且末尾统一保留一个换行符，行号超出范围时抛出异常
+  component: core.fs.slice
+  args:
+    - name: 源文件路径
+      type: str
+    - name: 行号，从 1 开始
+      type: int
+    - name: 输出文件路径
+      type: str
+fs_write:
+  name: 写入文件内容
+  info: 使用 UTF-8 编码写入文本文件，若文件已存在则会被覆盖
+  component: core.fs.write
+  args:
+    - name: 待写入的文件路径
+      type: str
+    - name: 待写入的内容
+      type: Text
+fs_append:
+  name: 在文件末尾添加一行
+  info: 使用 UTF-8 编码在文本文件末尾添加一行内容，若文件不存在则会被创建
+  component: core.fs.append
+  args:
+    - name: 文件路径
+      type: str
+    - name: 待添加的一行内容
+      type: str
+fs_remove:
+  name: 删除文件
+  info: 删除指定的普通文件或符号链接，不存在的路径会被忽略，传入已存在的文件夹时会抛出异常
+  component: core.fs.remove
+  args:
+    - name: 文件路径
+      type: List[str]
+fs_remove_recursive:
+  name: 递归删除路径
+  info: 删除指定的普通文件或符号链接，或者递归删除指定文件夹及其中的全部内容，该操作不可恢复，不存在的路径会被忽略
+  component: core.fs.remove_recursive
+  args:
+    - name: 文件或文件夹路径
+      type: List[str]
+fs_create_dir:
+  name: 创建文件夹
+  info: 递归创建指定文件夹及其缺失的父文件夹，目标文件夹已存在时不会报错
+  component: core.fs.create_directory
+  args:
+    - name: 文件夹路径
+      type: List[str]
+fs_command:
+  name: 执行系统命令（非必要不使用）
+  info: 在指定工作目录中通过系统默认 Shell 同步执行命令。标准输出和标准错误会逐行写入 KDT 日志；执行期间会阻塞当前步骤，工作目录不存在或命令返回非零状态时会抛出异常
+  component: core.fs.command
+  args:
+    - name: 工作目录
+      type: str
+    - name: 系统命令
+      type: Text
+serial_create:
+  name: 创建一对互相连通的虚拟串口
+  info: 传入两个不同且尚未存在的串口入口路径，组件将通过 socat 创建一对互相连通的 PTY，并在指定路径建立符号链接。相对路径以 KDT 执行目录为基准解析，仅支持安装了 socat 的 POSIX 平台
+  component: func.io.serial.create
+  args:
+    - name: 第 1 个虚拟串口路径
+      type: str
+    - name: 第 2 个虚拟串口路径
+      type: str
+serial_remove:
+  name: 删除一对互相连通的虚拟串口
+  info: 传入 serial_create 创建时使用的同一对串口入口路径（顺序不限），组件将停止对应的 socat 桥接进程并删除两个符号链接，未找到对应串口对时仅记录警告
+  component: func.io.serial.remove
+  args:
+    - name: 第 1 个虚拟串口路径
+      type: str
+    - name: 第 2 个虚拟串口路径
+      type: str
+serial_write:
+  name: 向串口执行单次写操作
+  info: 组件将等待串口写入完成后返回，若超时则抛出异常
+  component: func.io.serial.write
+  args:
+    - name: 串口路径
+      type: str
+    - name: 波特率
+      type: Enum
+      data:
+        - 1200
+        - 2400
+        - 4800
+        - 9600
+        - 19200
+        - 38400
+        - 57600
+        - 115200
+    - name: 待写入的数据
+      type: str
+serial_read:
+  name: 注册单次读串口操作
+  info: 组件将在后台等待串口接收一次数据并写入指定文件，最长等待 30s。该步骤完成仅表示读取任务已注册，实际结果应通过输出文件和后续断言判断
+  component: func.io.serial.read
+  args:
+    - name: 串口路径
+      type: str
+    - name: 波特率
+      type: Enum
+      data:
+        - 1200
+        - 2400
+        - 4800
+        - 9600
+        - 19200
+        - 38400
+        - 57600
+        - 115200
+    - name: 输出文件路径
+      type: str
+serial_multiread:
+  name: 注册持续读串口操作
+  info: 组件将在后台持续读取串口数据并追加到指定文件，直到调用终止串口进程组件。该步骤完成仅表示后台任务已注册
+  component: func.io.serial.multiread
+  args:
+    - name: 串口路径
+      type: str
+    - name: 波特率
+      type: Enum
+      data:
+        - 1200
+        - 2400
+        - 4800
+        - 9600
+        - 19200
+        - 38400
+        - 57600
+        - 115200
+    - name: 输出文件路径
+      type: str
+serial_multiwrite:
+  name: 注册持续写串口操作
+  info: 组件将在后台持续检查输入文件，将其中的数据写入串口并在发送后清空文件，直到调用终止串口进程组件
+  component: func.io.serial.multiwrite
+  args:
+    - name: 串口路径
+      type: str
+    - name: 波特率
+      type: Enum
+      data:
+        - 1200
+        - 2400
+        - 4800
+        - 9600
+        - 19200
+        - 38400
+        - 57600
+        - 115200
+    - name: 输入文件路径
+      type: str
+serial_stop:
+  name: 终止串口后台进程
+  info: 终止当前 KDT 测试进程注册的全部串口后台操作，不影响其他进程启动的串口程序
+  component: func.io.serial.stop
+lpss_msg_strpub:
+  name: 注册简单消息发布任务：std/String
+  info: 组件将在后台按指定周期持续发布内容不变的字符串消息，直到调用终止 LPSS 后台节点组件。该步骤完成仅表示后台发布任务已注册
+  component: func.lpss.msg.strpub
+  args:
+    - name: 发布节点名称
+      type: str
+    - name: 发布主题
+      type: str
+    - name: 字符串消息
+      type: str
+    - name: 发布周期，单位为毫秒
+      type: int
+lpss_msg_strsub:
+  name: 注册简单消息订阅任务：std/String
+  info: 组件将在后台持续订阅字符串消息并逐行写入指定文件，直到调用终止 LPSS 后台节点组件。该步骤完成仅表示后台订阅任务已注册
+  component: func.lpss.msg.strsub
+  args:
+    - name: 订阅节点名称
+      type: str
+    - name: 订阅主题
+      type: str
+    - name: 输出文件路径
+      type: str
+lpss_msg_testpub:
+  name: 注册复合消息发布任务：TestTypes
+  info: 发布 KDT 自定义 TestTypes 消息，覆盖布尔、字符、各宽度整数、浮点、字符串、定长数组和变长数组；发布前会显式验证 serialize/deserialize 往返结果
+  component: func.lpss.msg.testpub
+  args:
+    - name: 发布节点名称
+      type: str
+    - name: 发布主题
+      type: str
+    - name: 发布周期，单位为毫秒
+      type: int
+lpss_msg_testsub:
+  name: 注册复合消息订阅任务：TestTypes
+  info: 订阅 KDT 自定义 TestTypes 消息，逐字段验证 LPSS 反序列化后的内容，并将 pass 或 fail 逐行写入指定文件
+  component: func.lpss.msg.testsub
+  args:
+    - name: 订阅节点名称
+      type: str
+    - name: 订阅主题
+      type: str
+    - name: 校验结果输出文件路径
+      type: str
+lpss_srv_strservice:
+  name: 注册简单类型服务端：std/SetBool
+  info: '组件将在后台注册 std/SetBool 服务。请求为 true 时返回 success: true 和 message: enabled，请求为 false 时返回 success: true 和 message: disabled，直到调用终止 LPSS 后台节点组件。该功能需要 C++20，C++17 环境会自动跳过'
+  component: func.lpss.srv.service
+  args:
+    - name: 服务端节点名称
+      type: str
+    - name: 服务名称
+      type: str
+lpss_srv_strclient:
+  name: 调用简单类型服务：std/SetBool
+  info: 调用一次 std/SetBool 服务并将 success 和 message 响应逐行写入指定文件。调用超时或 Adapter 异常退出时，该步骤失败；该功能需要 C++20，C++17 环境会自动跳过
+  component: func.lpss.srv.client
+  args:
+    - name: 客户端节点名称
+      type: str
+    - name: 服务名称
+      type: str
+    - name: 请求值
+      type: bool
+    - name: 响应输出文件路径
+      type: str
+    - name: 调用超时时间，单位为毫秒
+      type: int
+lpss_srv_timeout:
+  name: 断言简单类型服务调用超时
+  info: 在没有对应服务端的情况下调用 std/SetBool；仅当 Adapter 在指定时间后以退出码 5（服务调用超时）退出时成功，退出码 2 表示客户端创建失败，并设有额外的进程级硬超时以避免测试计划永久阻塞；该功能需要 C++20，C++17 环境会自动跳过
+  component: func.lpss.srv.timeout
+  args:
+    - name: 客户端节点名称
+      type: str
+    - name: 不存在的服务名称
+      type: str
+    - name: 调用超时时间，单位为毫秒
+      type: int
+lpss_srv_testservice:
+  name: 注册复合类型服务端：TestTypes
+  info: 注册使用 KDT 自定义 TestTypes 请求和响应的服务端；服务端逐字段校验反序列化后的请求，并将原始复合数据回传给客户端；该功能需要 C++20，C++17 环境会自动跳过
+  component: func.lpss.srv.testtypes_service
+  args:
+    - name: 服务端节点名称
+      type: str
+    - name: 服务名称
+      type: str
+lpss_srv_testclient:
+  name: 调用复合类型服务：TestTypes
+  info: 调用一次 KDT TestTypes 服务，显式验证请求与响应的 serialize/deserialize 往返结果，并将最终校验结果写入指定文件；该功能需要 C++20，C++17 环境会自动跳过
+  component: func.lpss.srv.testtypes_client
+  args:
+    - name: 客户端节点名称
+      type: str
+    - name: 服务名称
+      type: str
+    - name: 校验结果输出文件路径
+      type: str
+    - name: 调用超时时间，单位为毫秒
+      type: int
+lpss_stop:
+  name: 向指定 LPSS 后台节点发送信号
+  info: 根据 Adapter 类型和节点名称查找当前 KDT 启动的后台节点并发送指定信号；SIGINT 要求节点在 1 秒内以退出码 0 优雅退出，SIGTERM、SIGABRT、SIGSEGV、SIGKILL 则要求节点确实由对应信号终止；节点不存在、信号不受当前平台支持或超时后被强制终止均会导致步骤失败
+  component: func.lpss.base.stop
+  args:
+    - name: LPSS Adapter
+      type: Enum
+      data:
+        - msg.strpub
+        - msg.strsub
+        - msg.testpub
+        - msg.testsub
+        - srv.client
+        - srv.service
+        - srv.testclient
+        - srv.testservice
+    - name: 信号类型
+      type: Enum
+      data:
+        - SIGINT
+        - SIGTERM
+        - SIGABRT
+        - SIGSEGV
+        - SIGKILL
+    - name: LPSS 节点名称
+      type: str

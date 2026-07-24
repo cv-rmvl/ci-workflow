@@ -24,7 +24,7 @@ devel
 *.png
 *.jpg
 *.jpeg
-!rmvl-logo*
+!*logo*
 !doc/img/**
 
 # 模型文件
@@ -40,8 +40,16 @@ Camera
 _rm_codegen_*
 rmvlpara/
 rmvlmsg/
+rmvlsrv/
 !include/rmvlpara
 
 # 其他文件
 *.zip
 *.tar.*
+
+# 项目专属
+__pycache__
+node_modules
+dist
+tmp
+bin

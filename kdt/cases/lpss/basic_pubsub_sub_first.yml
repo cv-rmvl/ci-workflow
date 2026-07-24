@@ -1,0 +1,70 @@
+info: 【发布订阅】订阅端先启动时正常通信
+steps:
+  - name: fs_remove_recursive
+    args:
+      - - tmp-lpss-basic-pubsub-sub-first
+  - name: fs_create_dir
+    dep: true
+    args:
+      - - tmp-lpss-basic-pubsub-sub-first
+  - name: fs_write
+    dep: true
+    args:
+      - tmp-lpss-basic-pubsub-sub-first/expected.txt
+      - KDT LPSS subscriber first
+  - name: lpss_msg_strsub
+    dep: true
+    args:
+      - kdt_basic_sub_first_subscriber
+      - /kdt/basic/pubsub/sub-first
+      - tmp-lpss-basic-pubsub-sub-first/received.txt
+  - name: logic_wait
+    dep: true
+    args:
+      - 0.2
+  - name: lpss_msg_strpub
+    dep: true
+    args:
+      - kdt_basic_sub_first_publisher
+      - /kdt/basic/pubsub/sub-first
+      - KDT LPSS subscriber first
+      - 20
+  - name: logic_wait
+    dep: true
+    args:
+      - 0.2
+  - name: fs_slice
+    dep: true
+    args:
+      - tmp-lpss-basic-pubsub-sub-first/received.txt
+      - 1
+      - tmp-lpss-basic-pubsub-sub-first/line-1.txt
+  - name: fs_same
+    dep: true
+    args:
+      - tmp-lpss-basic-pubsub-sub-first/expected.txt
+      - tmp-lpss-basic-pubsub-sub-first/line-1.txt
+  - name: fs_slice
+    dep: true
+    args:
+      - tmp-lpss-basic-pubsub-sub-first/received.txt
+      - 2
+      - tmp-lpss-basic-pubsub-sub-first/line-2.txt
+  - name: fs_same
+    dep: true
+    args:
+      - tmp-lpss-basic-pubsub-sub-first/expected.txt
+      - tmp-lpss-basic-pubsub-sub-first/line-2.txt
+  - name: lpss_stop
+    args:
+      - msg.strpub
+      - SIGINT
+      - kdt_basic_sub_first_publisher
+  - name: lpss_stop
+    args:
+      - msg.strsub
+      - SIGINT
+      - kdt_basic_sub_first_subscriber
+  - name: fs_remove_recursive
+    args:
+      - - tmp-lpss-basic-pubsub-sub-first

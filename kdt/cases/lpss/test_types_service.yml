@@ -1,0 +1,43 @@
+info: 【服务】复杂消息结构的序列化与反序列化验证
+steps:
+  - name: fs_remove_recursive
+    args:
+      - - tmp-lpss-test-types-service
+  - name: fs_create_dir
+    dep: true
+    args:
+      - - tmp-lpss-test-types-service
+  - name: fs_write
+    dep: true
+    args:
+      - tmp-lpss-test-types-service/expected.txt
+      - pass
+  - name: lpss_srv_testservice
+    dep: true
+    args:
+      - kdt_test_types_service
+      - /kdt/test_types/service
+  - name: logic_wait
+    dep: true
+    args:
+      - 0.2
+  - name: lpss_srv_testclient
+    dep: true
+    args:
+      - kdt_test_types_client
+      - /kdt/test_types/service
+      - tmp-lpss-test-types-service/result.txt
+      - 3000
+  - name: fs_same
+    dep: true
+    args:
+      - tmp-lpss-test-types-service/expected.txt
+      - tmp-lpss-test-types-service/result.txt
+  - name: lpss_stop
+    args:
+      - srv.testservice
+      - SIGINT
+      - kdt_test_types_service
+  - name: fs_remove_recursive
+    args:
+      - - tmp-lpss-test-types-service

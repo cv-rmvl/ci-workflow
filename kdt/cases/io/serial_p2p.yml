@@ -1,0 +1,50 @@
+info: 串口点到点发送数据
+steps:
+  - name: fs_remove_recursive
+    dep: false
+    args:
+      - - tmp-serial
+  - name: serial_create
+    dep: true
+    args:
+      - tmp-serial/serial-p2p-a
+      - tmp-serial/serial-p2p-b
+  - name: serial_read
+    dep: true
+    args:
+      - tmp-serial/serial-p2p-b
+      - 115200
+      - tmp-serial/serial-p2p-output.txt
+  - name: logic_wait
+    dep: true
+    args:
+      - 0.05
+  - name: serial_write
+    dep: true
+    args:
+      - tmp-serial/serial-p2p-a
+      - 115200
+      - 'test string: serial p2p'
+  - name: logic_wait
+    dep: true
+    args:
+      - 0.2
+  - name: fs_write
+    dep: true
+    args:
+      - tmp-serial/serial-p2p-expected.txt
+      - 'test string: serial p2p'
+  - name: fs_same
+    dep: true
+    args:
+      - tmp-serial/serial-p2p-output.txt
+      - tmp-serial/serial-p2p-expected.txt
+  - name: serial_remove
+    dep: false
+    args:
+      - tmp-serial/serial-p2p-a
+      - tmp-serial/serial-p2p-b
+  - name: fs_remove_recursive
+    dep: false
+    args:
+      - - tmp-serial

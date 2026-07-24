@@ -6,32 +6,54 @@ on:
 jobs:
   build_and_test:
     name: Build and test on Ubuntu 20.04
+    env:
+      # adapted for RMVL 1.x
+      KDT_ENABLED: ${{ github.ref_name != '1.x' && github.base_ref != '1.x' && !startsWith(github.ref_name, '1.') }}
     runs-on: ubuntu-latest
     container:
       image: registry.cn-hangzhou.aliyuncs.com/cv-rmvl/rmvl-u20-base:latest
 
     steps:
-    - name: Checkout repository
+    - name: "[RMVL] Checkout repository"
       uses: actions/checkout@v6
 
-    - name: Configure the project by CMake
+    - name: "[RMVL] Configure the project by CMake"
       # RMVL 1.x does not support Python, we also can use the CMake option -DBUILD_PYTHON=ON although it is not necessary
       run: cmake -B ${{ github.workspace }}/build -DCMAKE_BUILD_TYPE=Release -DBUILD_EXTRA=ON -DBUILD_TESTS=ON -DBUILD_PYTHON=ON
 
-    - name: "Run build script: Unix Makefile"
-      run: cmake --build ${{ github.workspace }}/build --parallel 4
+    - name: "[RMVL] Run build script: Unix Makefile"
+      run: cmake --build ${{ github.workspace }}/build --parallel
 
-    - name: "Run test script: ctest"
+    - name: "[RMVL] Run test script: ctest"
       run: cd ${{ github.workspace }}/build && ctest
 
-    - name: Install the project by CMake
+    - name: "[RMVL] Install the project by CMake"
       run: cmake --install ${{ github.workspace }}/build
 
-    - name: "[Deploy] Checkout repository"
+    - name: "[KDT] Checkout repository"
+      if: env.KDT_ENABLED == 'true'
       uses: actions/checkout@v6
       with:
         repository: cv-rmvl/ci-workflow
         path: deploy-repo
 
-    - name: "[Deploy] Run deploy script"
-      run: bash deploy-repo/deploy/scripts/build.sh
+    - name: "[KDT] Install system dependencies"
+      if: env.KDT_ENABLED == 'true'
+      run: apt-get update && apt-get install -y python3-pip socat
+
+    - name: "[KDT] Install dependencies"
+      if: env.KDT_ENABLED == 'true'
+      run: python3 -m pip install -r deploy-repo/kdt/requirements.txt
+
+    - name: "[KDT] Run testing script"
+      if: env.KDT_ENABLED == 'true'
+      run: python3 deploy-repo/kdt/test.py ci_guardian
+
+    - name: "[KDT] Upload logs"
+      if: always() && env.KDT_ENABLED == 'true'
+      uses: actions/upload-artifact@v7
+      with:
+        name: kdt-logs-u20
+        path: deploy-repo/kdt/tmp/*.log
+        if-no-files-found: ignore
+        retention-days: 3
