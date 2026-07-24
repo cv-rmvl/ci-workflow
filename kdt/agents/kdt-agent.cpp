@@ -24,7 +24,7 @@ using rm::json;
 using rm::Request;
 using rm::Response;
 
-namespace {
+namespace kdt {
 
 struct Config {
     std::uint16_t port{8765};
@@ -372,13 +372,18 @@ Config parse_args(int argc, char **argv) {
     return config;
 }
 
-} // namespace
+void absent(const Request &, Response &res) {
+    res.heads["Access-Control-Allow-Headers"] =
+        "Content-Type, Authorization, X-KDT-If-Absent";
+}
+
+} // namespace kdt
 
 int main(int argc, char **argv) try {
 #ifndef _WIN32
     std::signal(SIGPIPE, SIG_IGN);
 #endif
-    auto config = parse_args(argc, argv);
+    auto config = kdt::parse_args(argc, argv);
     const fs::path root{path::root};
     auto components = root / "components";
     auto cases = root / "cases";
@@ -391,7 +396,7 @@ int main(int argc, char **argv) try {
     rm::async::IOContext context;
     rm::async::Webapp app(context);
     rm::async::HttpServer server(app);
-    ExecutionJob execution;
+    kdt::ExecutionJob execution;
 
     app.get("/", [](const Request &, Response &res) {
         res.send(
@@ -404,75 +409,75 @@ int main(int argc, char **argv) try {
     app.get("/api/health", [](const Request &, Response &res) {
         res.json({{"ok", true}});
     });
-    app.get("/api/keywords", guarded([&](const Request &, Response &res) {
-                res.json({{"content", read_text(components / "keywords.yml")}});
+    app.get("/api/keywords", kdt::guarded([&](const Request &, Response &res) {
+                res.json({{"content", kdt::read_text(components / "keywords.yml")}});
             }));
-    app.post("/api/keywords", guarded([&](const Request &req, Response &res) {
-                 write_text(components / "keywords.yml", req.body);
+    app.post("/api/keywords", kdt::guarded([&](const Request &req, Response &res) {
+                 kdt::write_text(components / "keywords.yml", req.body);
                  res.json({{"ok", true}});
              }));
-    app.get("/api/cases", guarded([&](const Request &, Response &res) {
-                res.json(list_cases(cases));
+    app.get("/api/cases", kdt::guarded([&](const Request &, Response &res) {
+                res.json(kdt::list_cases(cases));
             }));
-    app.get("/api/cases/:id", guarded([&](const Request &req, Response &res) {
-                auto path = case_path(cases, req.params.at("id"));
+    app.get("/api/cases/:id", kdt::guarded([&](const Request &req, Response &res) {
+                auto path = kdt::case_path(cases, req.params.at("id"));
                 if (!fs::is_regular_file(path))
-                    return json_error(res, 404, "Case not found");
-                res.json({{"content", read_text(path)}});
+                    return kdt::json_error(res, 404, "Case not found");
+                res.json({{"content", kdt::read_text(path)}});
             }));
-    app.post("/api/cases/:id", guarded([&](const Request &req, Response &res) {
-                 auto path = case_path(cases, req.params.at("id"));
-                 if (request_header_is(req, "X-KDT-If-Absent", "true") &&
+    app.post("/api/cases/:id", kdt::guarded([&](const Request &req, Response &res) {
+                 auto path = kdt::case_path(cases, req.params.at("id"));
+                 if (kdt::request_header_is(req, "X-KDT-If-Absent", "true") &&
                      fs::exists(path))
-                     return json_error(res, 409, "Case name already exists");
-                 write_text(path, req.body);
+                     return kdt::json_error(res, 409, "Case name already exists");
+                 kdt::write_text(path, req.body);
                  res.json({{"ok", true}});
              }));
-    app.del("/api/cases/:id", guarded([&](const Request &req, Response &res) {
-                auto path = case_path(cases, req.params.at("id"));
+    app.del("/api/cases/:id", kdt::guarded([&](const Request &req, Response &res) {
+                auto path = kdt::case_path(cases, req.params.at("id"));
                 if (fs::exists(path)) {
                     fs::remove(path);
-                    prune_empty_parents(path, cases);
+                    kdt::prune_empty_parents(path, cases);
                 }
                 res.json({{"ok", true}});
             }));
 
-    app.get("/api/plans", guarded([&](const Request &, Response &res) {
-                res.json(list_plans(plans));
+    app.get("/api/plans", kdt::guarded([&](const Request &, Response &res) {
+                res.json(kdt::list_plans(plans));
             }));
-    app.get("/api/plans/:name", guarded([&](const Request &req, Response &res) {
-                auto path = plan_path(plans, req.params.at("name"));
+    app.get("/api/plans/:name", kdt::guarded([&](const Request &req, Response &res) {
+                auto path = kdt::plan_path(plans, req.params.at("name"));
                 if (!fs::is_regular_file(path))
-                    return json_error(res, 404, "Plan not found");
-                res.json({{"content", read_text(path)}});
+                    return kdt::json_error(res, 404, "Plan not found");
+                res.json({{"content", kdt::read_text(path)}});
             }));
-    app.post("/api/plans/:name", guarded([&](const Request &req, Response &res) {
-                 auto path = plan_path(plans, req.params.at("name"));
-                 if (request_header_is(req, "X-KDT-If-Absent", "true") &&
+    app.post("/api/plans/:name", kdt::guarded([&](const Request &req, Response &res) {
+                 auto path = kdt::plan_path(plans, req.params.at("name"));
+                 if (kdt::request_header_is(req, "X-KDT-If-Absent", "true") &&
                      fs::exists(path))
-                     return json_error(res, 409, "Plan name already exists");
-                 write_text(path, req.body);
+                     return kdt::json_error(res, 409, "Plan name already exists");
+                 kdt::write_text(path, req.body);
                  res.json({{"ok", true}});
              }));
-    app.del("/api/plans/:name", guarded([&](const Request &req, Response &res) {
-                auto path = plan_path(plans, req.params.at("name"));
+    app.del("/api/plans/:name", kdt::guarded([&](const Request &req, Response &res) {
+                auto path = kdt::plan_path(plans, req.params.at("name"));
                 if (fs::exists(path))
                     fs::remove(path);
                 res.json({{"ok", true}});
             }));
 
-    app.post("/api/execute", guarded([&](const Request &req, Response &res) {
+    app.post("/api/execute", kdt::guarded([&](const Request &req, Response &res) {
                  auto body = json::parse(req.body);
                  auto selected = body.at("plans").get<std::vector<std::string>>();
                  if (selected.empty())
                      throw std::invalid_argument("Select at least one plan");
                  for (const auto &plan : selected)
-                     if (!valid_segment(plan))
+                     if (!kdt::valid_segment(plan))
                          throw std::invalid_argument("Invalid plan name");
                  {
                      std::scoped_lock lock(execution.mutex);
                      if (execution.running)
-                         return json_error(res, 409, "A test execution is already running");
+                         return kdt::json_error(res, 409, "A test execution is already running");
                      execution.output.clear();
                      execution.running = true;
                      execution.finished = false;
@@ -556,26 +561,26 @@ int main(int argc, char **argv) try {
         }
     });
 
-    app.get("/api/logs", guarded([&](const Request &, Response &res) {
+    app.get("/api/logs", kdt::guarded([&](const Request &, Response &res) {
                 {
                     std::scoped_lock lock(execution.mutex);
                     if (execution.running)
-                        return json_error(res, 409, "Logs are unavailable during execution");
+                        return kdt::json_error(res, 409, "Logs are unavailable during execution");
                 }
-                res.json(list_logs(tmp));
+                res.json(kdt::list_logs(tmp));
             }));
 
-    app.del("/api/logs", guarded([&](const Request &, Response &res) {
+    app.del("/api/logs", kdt::guarded([&](const Request &, Response &res) {
                 {
                     std::scoped_lock lock(execution.mutex);
                     if (execution.running)
-                        return json_error(res, 409, "Logs cannot be cleared during execution");
+                        return kdt::json_error(res, 409, "Logs cannot be cleared during execution");
                 }
                 std::size_t removed{};
                 if (fs::exists(tmp)) {
                     for (const auto &entry : fs::directory_iterator(tmp)) {
                         if (!entry.is_regular_file() ||
-                            !valid_log_name(entry.path().filename().string()))
+                            !kdt::valid_log_name(entry.path().filename().string()))
                             continue;
                         if (fs::remove(entry.path()))
                             ++removed;
@@ -584,22 +589,23 @@ int main(int argc, char **argv) try {
                 res.json({{"ok", true}, {"removed", removed}});
             }));
 
-    app.get("/api/logs/:name", guarded([&](const Request &req, Response &res) {
+    app.get("/api/logs/:name", kdt::guarded([&](const Request &req, Response &res) {
                 {
                     std::scoped_lock lock(execution.mutex);
                     if (execution.running)
-                        return json_error(res, 409, "Logs are unavailable during execution");
+                        return kdt::json_error(res, 409, "Logs are unavailable during execution");
                 }
                 const auto &name = req.params.at("name");
-                if (!valid_log_name(name))
+                if (!kdt::valid_log_name(name))
                     throw std::invalid_argument("Invalid log name");
                 auto path = tmp / name;
                 if (!fs::is_regular_file(path))
-                    return json_error(res, 404, "Log not found");
-                res.json({{"content", read_text(path)}});
+                    return kdt::json_error(res, 404, "Log not found");
+                res.json({{"content", kdt::read_text(path)}});
             }));
 
     app.use(rm::cors());
+    app.use(kdt::absent);
 
     server.listen(config.port, [&] {
         fmt::println(
