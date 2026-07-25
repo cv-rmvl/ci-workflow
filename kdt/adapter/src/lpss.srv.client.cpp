@@ -19,7 +19,23 @@ async::Task<> call_set_bool(lpss::async::Node &node, lpss::async::Client<srv::Se
     srv::SetBool::Request request{};
     request.data = data;
 
-    auto response = co_await client->call(request, timeout);
+    const auto deadline = std::chrono::steady_clock::now() + timeout;
+    if (!(co_await client->wait(timeout))) {
+        fmt::println(stderr, "SetBool service did not come online after {} ms", timeout.count());
+        exit_code = 5;
+        node.shutdown();
+        co_return;
+    }
+
+    const auto now = std::chrono::steady_clock::now();
+    if (now >= deadline) {
+        fmt::println(stderr, "SetBool service call timed out after {} ms", timeout.count());
+        exit_code = 5;
+        node.shutdown();
+        co_return;
+    }
+
+    auto response = co_await client->call(request, deadline - now);
     if (!response) {
         fmt::println(stderr, "SetBool service call timed out after {} ms", timeout.count());
         exit_code = 5;
@@ -90,15 +106,14 @@ int main(int argc, char *argv[]) {
     }
 
     int exit_code = 0;
-    bool request_started = false;
-    auto discovery_timer = node.createTimer(
-        std::chrono::milliseconds(200),
-        [&node, client, data = data_text == "1", output, timeout = std::chrono::milliseconds(timeout_ms), &exit_code, &request_started]() {
-            if (request_started)
-                return;
-            request_started = true;
-            node.create_task(call_set_bool, std::ref(node), client, data, output, timeout, std::ref(exit_code));
-        });
+    node.create_task(
+        call_set_bool,
+        std::ref(node),
+        client,
+        data_text == "1",
+        output,
+        std::chrono::milliseconds(timeout_ms),
+        std::ref(exit_code));
     node.spin();
     return exit_code;
 #else

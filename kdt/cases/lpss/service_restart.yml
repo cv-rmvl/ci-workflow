@@ -1,4 +1,4 @@
-info: 【服务】服务正常退出后重新上线并恢复调用
+info: 【服务】服务正常退出后重新上线，客户端能正常调用
 steps:
   - name: fs_remove_recursive
     args:
@@ -7,8 +7,6 @@ steps:
     dep: true
     args:
       - - tmp-lpss-service-restart
-
-  # 建立首次调用基线。
   - name: lpss_srv_strservice
     dep: true
     args:
@@ -38,8 +36,6 @@ steps:
     args:
       - tmp-lpss-service-restart/before-response.txt
       - tmp-lpss-service-restart/before-expected.txt
-
-  # 正常停止服务，并确认原服务端点已经不可调用。
   - name: lpss_stop
     dep: true
     args:
@@ -56,8 +52,6 @@ steps:
       - kdt_service_restart_offline_client
       - /kdt/service/restart/set_enabled
       - 300
-
-  # 使用相同节点名和服务名重新上线，并验证请求响应恢复。
   - name: lpss_srv_strservice
     dep: true
     args:
@@ -87,7 +81,6 @@ steps:
     args:
       - tmp-lpss-service-restart/after-response.txt
       - tmp-lpss-service-restart/after-expected.txt
-
   - name: lpss_stop
     args:
       - srv.service

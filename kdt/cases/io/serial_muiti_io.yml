@@ -1,7 +1,6 @@
-info: 串口多次读写
+info: 串口多次读写均能正常接收
 steps:
   - name: fs_remove_recursive
-    dep: false
     args:
       - - tmp-serial
   - name: serial_create
@@ -176,7 +175,6 @@ steps:
     args:
       - 0.2
   - name: serial_stop
-    dep: false
     args: []
   - name: fs_same
     dep: true
@@ -184,11 +182,9 @@ steps:
       - tmp-serial/serial-multi-output.txt
       - tmp-serial/serial-multi-expected.txt
   - name: serial_remove
-    dep: false
     args:
       - tmp-serial/serial-multi-a
       - tmp-serial/serial-multi-b
   - name: fs_remove_recursive
-    dep: false
     args:
       - - tmp-serial

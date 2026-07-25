@@ -5,7 +5,14 @@ import subprocess
 import sys
 from pathlib import Path
 
+# 统一编码格式
+for stream in (sys.stdout, sys.stderr):
+    reconfigure = getattr(stream, "reconfigure", None)
+    if callable(reconfigure):
+        reconfigure(encoding="utf-8", errors="replace")
+
 from framework import logger, run_plan
+from framework.runner import PlanExecutionError
 
 # Enviroment configuration
 class Config:
@@ -62,6 +69,14 @@ def resolve_rmvl_dir(prefix: Path) -> Path:
     rmvl_dir = config_files[0].parent
     logger.info(f"Found RMVL package config: {config_files[0]}")
     return rmvl_dir
+
+def configure_rmvl_environment(rmvl_dir: Path):
+    """让测试用例启动的 CMake 子进程也能找到 RMVL 包配置。"""
+    current = os.environ.get("CMAKE_PREFIX_PATH")
+    prefixes = [str(rmvl_dir)]
+    if current:
+        prefixes.append(current)
+    os.environ["CMAKE_PREFIX_PATH"] = os.pathsep.join(prefixes)
 
 def execute(cmd, silent=True):
     """
@@ -127,21 +142,38 @@ def main() -> int:
             if args.rmvl_dir is not None
             else None
         )
+        if rmvl_dir is not None:
+            configure_rmvl_environment(rmvl_dir)
     except FileNotFoundError as exc:
         logger.error(exc)
         print(exc, file=sys.stderr)
         return 2
 
-    build_adapter(rmvl_dir)
+    try:
+        build_adapter(rmvl_dir)
+    except Exception as exc:
+        logger.error(
+            "Adapter build failed; test plans were not executed: "
+            f"{type(exc).__name__}: {exc}"
+        )
+        if isinstance(exc, subprocess.CalledProcessError):
+            return exc.returncode or 1
+        return 1
 
     failed = False
     for plan_file in plan_files:
         logger.info(f"Run plan: {plan_file}")
         try:
             run_plan(plan_file)
-        except Exception:
+        except PlanExecutionError:
             failed = True
             logger.error(f"Plan failed: {plan_file}")
+        except Exception as exc:
+            failed = True
+            logger.error(
+                f"Plan failed: {plan_file}: "
+                f"{type(exc).__name__}: {exc}"
+            )
         else:
             logger.success(f"Plan passed: {plan_file}")
 

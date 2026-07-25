@@ -8,5 +8,7 @@ cases:
     loop: 10
   - case: lpss.one_pub_multi_sub
     loop: 10
+  - case: lpss.test_types_service
+    loop: 15
   - case: lpss.basic_service
     loop: 15

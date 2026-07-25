@@ -1,4 +1,4 @@
-info: 【发布订阅】NPub-1Sub 多发布者单订阅者功能验证
+info: 【发布订阅】多发布者单订阅者，订阅者能受到不同的消息
 steps:
   - name: fs_remove_recursive
     args:

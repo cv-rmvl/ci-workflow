@@ -1,4 +1,4 @@
-info: 【服务】请求响应功能验证
+info: 【服务】客户端正常发送请求能收到响应
 steps:
   - name: fs_remove_recursive
     args:

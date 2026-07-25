@@ -182,8 +182,9 @@ def _send_process_signal(
     """向指定后台 Adapter 发送所选信号。"""
     if os.name == "nt":
         if signal_type is LpssSignal.SIGINT:
-            # 新进程组中的 CTRL_C_EVENT 会映射为 C 运行时的 SIGINT。
-            process.send_signal(signal.CTRL_C_EVENT)
+            # CTRL_C_EVENT 无法可靠地定向到指定进程组；RMVL 将可定向的
+            # CTRL_BREAK_EVENT 映射为 SIGINT。
+            process.send_signal(signal.CTRL_BREAK_EVENT)
         elif signal_type is LpssSignal.SIGKILL:
             process.kill()
         elif signal_type is LpssSignal.SIGTERM:

@@ -1,4 +1,4 @@
-info: 【代码生成】Para 功能验证
+info: Para 正常生成文件且编译通过
 steps:
   - name: fs_remove_recursive
     args:
@@ -17,7 +17,10 @@ steps:
         find_package(RMVL REQUIRED)
         add_subdirectory(ts)
         rmvl_add_exe(kdt-cgtmp SOURCES kdt-cgtmp.cpp DEPENDS ts)
-        target_compile_definitions(kdt-cgtmp PRIVATE "PROJECT_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}\"")
+        target_compile_definitions(kdt-cgtmp PRIVATE
+          "PROJECT_PATH=\"${CMAKE_CURRENT_SOURCE_DIR}\""
+          "KDT_WITH_OPENCV=$<BOOL:${WITH_OPENCV}>"
+        )
         add_custom_target(kdt-cgtmp-run COMMAND $<TARGET_FILE:kdt-cgtmp> DEPENDS kdt-cgtmp USES_TERMINAL VERBATIM)
   - name: fs_write
     dep: true
@@ -35,8 +38,14 @@ steps:
       - |-
         #include <cstdio>
         #include "rmvlpara/ts.hpp"
-        using namespace rm; int main() { if (para::ts_param.a != 1 || para::ts_param.b != 2.0) return -1; std::string para_path =
-        PROJECT_PATH; para::ts_param.read(para_path + "/t.yml"); if (para::ts_param.a != 2 || para::ts_param.b != 3.0) return -1; }
+        using namespace rm;
+        int main() { if (para::ts_param.a != 1 || para::ts_param.b != 2.0) return -1;
+        #if KDT_WITH_OPENCV
+        std::string para_path = PROJECT_PATH;
+        if (!para::ts_param.read(para_path + "/t.yml")) return -2;
+        if (para::ts_param.a != 2 || para::ts_param.b != 3.0) return -3;
+        #endif
+        }
   - name: fs_write
     dep: true
     args:
@@ -50,7 +59,11 @@ steps:
       - tmp-cgpara/ts/CMakeLists.txt
       - |-
         rmvl_generate_para(ts)
-        rmvl_add_module(ts DEPENDS core)
+        if(WITH_OPENCV)
+          rmvl_add_module(ts DEPENDS core)
+        else()
+          rmvl_add_module(ts INTERFACE DEPENDS core)
+        endif()
   - name: fs_command
     dep: true
     args:

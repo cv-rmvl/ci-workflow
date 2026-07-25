@@ -30,7 +30,23 @@ async::Task<> call_test_types(lpss::async::Node &node, lpss::async::Client<srv::
         co_return;
     }
 
-    auto response = co_await client->call(request, timeout);
+    const auto deadline = std::chrono::steady_clock::now() + timeout;
+    if (!(co_await client->wait(timeout))) {
+        fmt::println(stderr, "TestTypes service did not come online after {} ms", timeout.count());
+        exit_code = 3;
+        node.shutdown();
+        co_return;
+    }
+
+    const auto now = std::chrono::steady_clock::now();
+    if (now >= deadline) {
+        fmt::println(stderr, "TestTypes service call timed out after {} ms", timeout.count());
+        exit_code = 3;
+        node.shutdown();
+        co_return;
+    }
+
+    auto response = co_await client->call(request, deadline - now);
     if (!response) {
         fmt::println(stderr, "TestTypes service call timed out after {} ms", timeout.count());
         exit_code = 3;
@@ -90,26 +106,13 @@ int main(int argc, char *argv[]) {
     }
 
     int exit_code = 0;
-    bool request_started = false;
-    auto discovery_timer = node.createTimer(
-        std::chrono::milliseconds(200),
-        [&node,
-         client,
-         output = parser.get("output"),
-         timeout = std::chrono::milliseconds(timeout_ms),
-         &exit_code,
-         &request_started]() {
-            if (request_started)
-                return;
-            request_started = true;
-            node.create_task(
-                call_test_types,
-                std::ref(node),
-                client,
-                output,
-                timeout,
-                std::ref(exit_code));
-        });
+    node.create_task(
+        call_test_types,
+        std::ref(node),
+        client,
+        parser.get("output"),
+        std::chrono::milliseconds(timeout_ms),
+        std::ref(exit_code));
     node.spin();
     return exit_code;
 #else

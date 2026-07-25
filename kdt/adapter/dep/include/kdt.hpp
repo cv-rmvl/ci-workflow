@@ -15,7 +15,7 @@
 namespace kdt {
 
 //! Adapter 使用该退出码通知 KDT 当前功能在本构建配置下不可用
-inline constexpr int skipped_exit_code = 77;
+constexpr int skipped_exit_code = 77;
 
 //! C++17 同步 LPSS Adapter 的中断状态
 inline volatile std::sig_atomic_t interrupt_requested = 0;
@@ -23,7 +23,12 @@ inline volatile std::sig_atomic_t interrupt_requested = 0;
 //! 安装 SIGINT 处理器
 inline void install_interrupt_handler() {
     interrupt_requested = 0;
-    std::signal(SIGINT, [](int) { interrupt_requested = 1; });
+    const auto handler = [](int) { interrupt_requested = 1; };
+    std::signal(SIGINT, handler);
+#ifdef SIGBREAK
+    // Windows 只能将 CTRL_BREAK_EVENT 可靠地定向到指定进程组。
+    std::signal(SIGBREAK, handler);
+#endif
 }
 
 //! 判断是否仍应继续运行

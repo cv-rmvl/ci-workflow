@@ -1,4 +1,4 @@
-info: 【代码生成】Srv 功能验证
+info: Srv 正常生成文件且编译通过
 steps:
   - name: fs_remove_recursive
     args:

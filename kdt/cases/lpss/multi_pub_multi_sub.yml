@@ -1,4 +1,4 @@
-info: 【发布订阅】NPub-NSub 多发布者多订阅者功能验证
+info: 【发布订阅】多发布者多订阅者，每个订阅者均能受到不同的消息
 steps:
   - name: fs_remove_recursive
     args:
@@ -7,7 +7,6 @@ steps:
     dep: true
     args:
       - - tmp-lpss-multi-pub-multi-sub
-
   - name: lpss_msg_strsub
     dep: true
     args:
@@ -30,7 +29,6 @@ steps:
     dep: true
     args:
       - 0.2
-
   - name: lpss_msg_strpub
     dep: true
     args:
@@ -56,7 +54,6 @@ steps:
     dep: true
     args:
       - 0.7
-
   - name: fs_unique_count
     dep: true
     args:
@@ -93,7 +90,6 @@ steps:
       - - KDT LPSS multi publisher 1
         - KDT LPSS multi publisher 2
         - KDT LPSS multi publisher 3
-
   - name: lpss_stop
     args:
       - msg.strpub
@@ -124,7 +120,6 @@ steps:
       - msg.strsub
       - SIGINT
       - kdt_multi_pub_multi_subscriber_3
-
   - name: fs_remove_recursive
     args:
       - - tmp-lpss-multi-pub-multi-sub
