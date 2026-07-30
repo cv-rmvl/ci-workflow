@@ -46,12 +46,12 @@ steps:
   - name: lpss_stop
     args:
       - msg.testpub
-      - SIGINT
+      - SIGTERM
       - kdt_test_types_publisher
   - name: lpss_stop
     args:
       - msg.testsub
-      - SIGINT
+      - SIGTERM
       - kdt_test_types_subscriber
   - name: fs_remove_recursive
     args:

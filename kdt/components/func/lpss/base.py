@@ -181,14 +181,15 @@ def _send_process_signal(
 ):
     """向指定后台 Adapter 发送所选信号。"""
     if os.name == "nt":
-        if signal_type is LpssSignal.SIGINT:
-            # CTRL_C_EVENT 无法可靠地定向到指定进程组；RMVL 将可定向的
-            # CTRL_BREAK_EVENT 映射为 SIGINT。
+        if signal_type is LpssSignal.SIGTERM:
+            # CTRL_BREAK_EVENT 可定向到指定进程组，RMVL 将其作为 SIGTERM 交给节点执行优雅退出。
             process.send_signal(signal.CTRL_BREAK_EVENT)
         elif signal_type is LpssSignal.SIGKILL:
             process.kill()
-        elif signal_type is LpssSignal.SIGTERM:
-            process.terminate()
+        elif signal_type is LpssSignal.SIGINT:
+            raise RuntimeError(
+                "SIGINT cannot be reliably directed to one process group on Windows; use SIGTERM"
+            )
         else:
             process.send_signal(_native_signal(signal_type))
         return
@@ -196,9 +197,7 @@ def _send_process_signal(
     process.send_signal(_native_signal(signal_type))
 
 
-def _request_process_stop(
-    process: subprocess.Popen, signal_type: LpssSignal = LpssSignal.SIGINT
-) -> bool:
+def _request_process_stop(process: subprocess.Popen, signal_type: LpssSignal = LpssSignal.SIGTERM) -> bool:
     """向后台 Adapter 发送信号，返回超时后是否使用了强制终止。"""
     if process.poll() is not None:
         return False
@@ -223,13 +222,19 @@ def stop(adapter: LpssAdapter, signal_type: LpssSignal, node_name: str):
     """
     向指定名称的 LPSS 后台节点发送信号。
 
-    SIGINT 要求节点在超时时间内以退出码 0 优雅退出；其他信号要求节点确实
-    由所选信号终止。若存在多个同名同类型节点，则全部终止并逐一校验。
+    SIGINT 和 SIGTERM 要求节点在超时时间内以退出码 0 优雅退出；其他信号
+    要求节点确实由所选信号终止。Windows 无法向指定进程组可靠发送 SIGINT，
+    应使用 SIGTERM。若存在多个同名同类型节点，则全部终止并逐一校验。
 
     :param adapter: 待停止节点使用的 LPSS Adapter
     :param signal_type: 要发送的信号类型
     :param node_name: 启动组件传入的节点名称
     """
+    if os.name == "nt" and signal_type is LpssSignal.SIGINT:
+        raise RuntimeError(
+            "SIGINT cannot be reliably directed to one process group on Windows; use SIGTERM"
+        )
+
     with _BACKGROUND_PROCESSES_LOCK:
         processes = [
             process
@@ -246,27 +251,26 @@ def stop(adapter: LpssAdapter, signal_type: LpssSignal, node_name: str):
             LpssAdapter.SRV_TESTSERVICE,
         }:
             _require_supported(adapter)
-        raise RuntimeError(
-            f"No {adapter.value} process named {node_name!r} is running"
-        )
+        raise RuntimeError(f"No {adapter.value} process named {node_name!r} is running")
 
     failures = []
     for process in processes:
         forced = _request_process_stop(process, signal_type)
         if forced:
-            failures.append(
-                f"PID {process.pid} did not exit after {signal_type.value}"
-            )
-        elif signal_type is LpssSignal.SIGINT and process.returncode != 0:
-            failures.append(
-                f"PID {process.pid} exited with code {process.returncode}"
-            )
-        elif os.name != "nt" and signal_type is not LpssSignal.SIGINT:
+            failures.append(f"PID {process.pid} did not exit after {signal_type.value}")
+        elif signal_type in {
+            LpssSignal.SIGINT,
+            LpssSignal.SIGTERM,
+        } and process.returncode != 0:
+            failures.append(f"PID {process.pid} exited with code {process.returncode}")
+        elif os.name != "nt" and signal_type not in {
+            LpssSignal.SIGINT,
+            LpssSignal.SIGTERM,
+        }:
             expected_code = -int(_native_signal(signal_type))
             if process.returncode != expected_code:
                 failures.append(
-                    f"PID {process.pid} exited with code {process.returncode}, "
-                    f"expected {expected_code} for {signal_type.value}"
+                    f"PID {process.pid} exited with code {process.returncode}, expected {expected_code} for {signal_type.value}"
                 )
 
     if failures:

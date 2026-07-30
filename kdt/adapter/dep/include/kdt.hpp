@@ -20,11 +20,12 @@ constexpr int skipped_exit_code = 77;
 //! C++17 同步 LPSS Adapter 的中断状态
 inline volatile std::sig_atomic_t interrupt_requested = 0;
 
-//! 安装 SIGINT 处理器
+//! 安装正常退出信号处理器
 inline void install_interrupt_handler() {
     interrupt_requested = 0;
     const auto handler = [](int) { interrupt_requested = 1; };
     std::signal(SIGINT, handler);
+    std::signal(SIGTERM, handler);
 #ifdef SIGBREAK
     // Windows 只能将 CTRL_BREAK_EVENT 可靠地定向到指定进程组。
     std::signal(SIGBREAK, handler);
@@ -35,7 +36,7 @@ inline void install_interrupt_handler() {
 inline bool keep_running() noexcept { return interrupt_requested == 0; }
 
 /**
- * @brief 阻塞至收到 SIGINT，并直接结束当前 Adapter 进程
+ * @brief 阻塞至收到正常退出信号，并直接结束当前 Adapter 进程
  *
  * C++17 版同步 DataReader 持有永久阻塞的读取线程，无法通过公开接口安全
  * 回收。收到停止信号后跳过静态和栈对象析构，由操作系统统一释放资源。

@@ -58,12 +58,12 @@ steps:
   - name: lpss_stop
     args:
       - msg.strpub
-      - SIGINT
+      - SIGTERM
       - kdt_basic_sub_first_publisher
   - name: lpss_stop
     args:
       - msg.strsub
-      - SIGINT
+      - SIGTERM
       - kdt_basic_sub_first_subscriber
   - name: fs_remove_recursive
     args:

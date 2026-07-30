@@ -40,7 +40,7 @@ steps:
     dep: true
     args:
       - srv.service
-      - SIGINT
+      - SIGTERM
       - kdt_service_restart_server
   - name: logic_wait
     dep: true
@@ -84,7 +84,7 @@ steps:
   - name: lpss_stop
     args:
       - srv.service
-      - SIGINT
+      - SIGTERM
       - kdt_service_restart_server
   - name: fs_remove_recursive
     args:

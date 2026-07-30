@@ -59,7 +59,7 @@ steps:
   - name: lpss_stop
     args:
       - srv.service
-      - SIGINT
+      - SIGTERM
       - kdt_basic_setbool_service
   - name: lpss_srv_timeout
     args:

@@ -36,7 +36,7 @@ steps:
   - name: lpss_stop
     args:
       - srv.testservice
-      - SIGINT
+      - SIGTERM
       - kdt_test_types_service
   - name: fs_remove_recursive
     args:

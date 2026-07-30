@@ -93,32 +93,32 @@ steps:
   - name: lpss_stop
     args:
       - msg.strpub
-      - SIGINT
+      - SIGTERM
       - kdt_multi_pub_multi_publisher_1
   - name: lpss_stop
     args:
       - msg.strpub
-      - SIGINT
+      - SIGTERM
       - kdt_multi_pub_multi_publisher_2
   - name: lpss_stop
     args:
       - msg.strpub
-      - SIGINT
+      - SIGTERM
       - kdt_multi_pub_multi_publisher_3
   - name: lpss_stop
     args:
       - msg.strsub
-      - SIGINT
+      - SIGTERM
       - kdt_multi_pub_multi_subscriber_1
   - name: lpss_stop
     args:
       - msg.strsub
-      - SIGINT
+      - SIGTERM
       - kdt_multi_pub_multi_subscriber_2
   - name: lpss_stop
     args:
       - msg.strsub
-      - SIGINT
+      - SIGTERM
       - kdt_multi_pub_multi_subscriber_3
   - name: fs_remove_recursive
     args:

@@ -306,7 +306,7 @@ lpss_srv_testclient:
       type: int
 lpss_stop:
   name: 向指定 LPSS 后台节点发送信号
-  info: 根据 Adapter 类型和节点名称查找当前 KDT 启动的后台节点并发送指定信号；SIGINT 要求节点在 1 秒内以退出码 0 优雅退出，SIGTERM、SIGABRT、SIGSEGV、SIGKILL 则要求节点确实由对应信号终止；节点不存在、信号不受当前平台支持或超时后被强制终止均会导致步骤失败
+  info: 根据 Adapter 类型和节点名称查找当前 KDT 启动的后台节点并发送指定信号；SIGINT、SIGTERM 要求节点在 1 秒内以退出码 0 优雅退出，其中 Windows 应使用可定向到指定进程组的 SIGTERM；SIGABRT、SIGSEGV、SIGKILL 要求节点确实由对应信号终止；节点不存在、信号不受当前平台支持或超时后被强制终止均会导致步骤失败
   component: func.lpss.base.stop
   args:
     - name: LPSS Adapter
