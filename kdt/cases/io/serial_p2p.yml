@@ -1,4 +1,4 @@
-info: 串口点到点互数据能正常接收
+info: 串口点到点互传数据能正常接收
 steps:
   - name: fs_remove_recursive
     args:
