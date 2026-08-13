@@ -108,7 +108,9 @@ def slice(source: str, line: int, target: str):
     if line > len(lines):
         raise IndexError(f"Line {line} is out of range for file: {source}")
 
-    Path(target).write_text(lines[line - 1] + "\n", encoding="utf-8")
+    result = lines[line - 1]
+    Path(target).write_text(result + "\n", encoding="utf-8")
+    return result
 
 
 def write(path: str, content: str):
@@ -224,3 +226,4 @@ def command(path: str, command: str):
             f"Command failed with exit code {result.returncode}: {command}"
         )
         raise RuntimeError(f"Command exited with code {result.returncode}")
+    return stdout

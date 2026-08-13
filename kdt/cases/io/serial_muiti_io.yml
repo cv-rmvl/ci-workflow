@@ -1,4 +1,8 @@
-info: 串口多次读写均能正常接收
+info:
+  name: 串口多次读写均能正常接收
+  background: 运行环境支持 POSIX PTY 且已安装 socat
+  input: 通过波特率为 115200 的虚拟串口连续发送 serial multi 01 至 serial multi 10
+  expected: 接收文件依次包含全部 10 条消息且内容完全一致
 steps:
   - name: fs_remove_recursive
     args:

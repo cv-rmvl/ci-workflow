@@ -1,4 +1,7 @@
-info: 【发布订阅】发布端先启动时正常通信
+info:
+  name: 【发布订阅】发布端先启动时正常通信
+  input: 发布端先启动并以 20 ms 周期发送固定文本，随后启动订阅端
+  expected: 订阅端能够发现发布端并连续收到相同文本
 steps:
   - name: fs_remove_recursive
     args:
@@ -7,11 +10,6 @@ steps:
     dep: true
     args:
       - - tmp-lpss-basic-pubsub-pub-first
-  - name: fs_write
-    dep: true
-    args:
-      - tmp-lpss-basic-pubsub-pub-first/expected.txt
-      - KDT LPSS publisher first
   - name: lpss_msg_strpub
     dep: true
     args:
@@ -39,22 +37,22 @@ steps:
       - tmp-lpss-basic-pubsub-pub-first/received.txt
       - 1
       - tmp-lpss-basic-pubsub-pub-first/line-1.txt
-  - name: fs_same
+  - name: assert_equal
     dep: true
     args:
-      - tmp-lpss-basic-pubsub-pub-first/expected.txt
-      - tmp-lpss-basic-pubsub-pub-first/line-1.txt
+      - "{{ step7 }}"
+      - KDT LPSS publisher first
   - name: fs_slice
     dep: true
     args:
       - tmp-lpss-basic-pubsub-pub-first/received.txt
       - 2
       - tmp-lpss-basic-pubsub-pub-first/line-2.txt
-  - name: fs_same
+  - name: assert_equal
     dep: true
     args:
-      - tmp-lpss-basic-pubsub-pub-first/expected.txt
-      - tmp-lpss-basic-pubsub-pub-first/line-2.txt
+      - "{{ step9 }}"
+      - KDT LPSS publisher first
   - name: lpss_stop
     args:
       - msg.strpub

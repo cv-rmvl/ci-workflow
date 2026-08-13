@@ -1,4 +1,7 @@
-info: Msg 正常生成文件且编译通过
+info:
+  name: Msg 正常生成文件且编译通过
+  input: 必要的 msg、CMakeLists.txt、源文件等，组合成一个可编译的工程
+  expected: 编译通过
 steps:
   - name: fs_remove_recursive
     args:

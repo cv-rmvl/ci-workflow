@@ -1,4 +1,7 @@
-info: Para 正常生成文件且编译通过
+info:
+  name: Para 正常生成文件且编译通过
+  input: Para 描述文件、配置文件、CMakeLists.txt 和调用参数模块的源文件
+  expected: 参数模块正常生成，测试程序能够读取参数并编译运行
 steps:
   - name: fs_remove_recursive
     args:

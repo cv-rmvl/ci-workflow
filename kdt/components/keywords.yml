@@ -4,6 +4,38 @@ logic_wait:
   args:
     - name: 等待时间，单位为秒
       type: float
+assert_equal:
+  name: 断言两个值相等
+  info: 比较两个 Python 值；参数可使用 {{ stepN }} 引用此前成功步骤的返回值，不相等时抛出异常
+  component: core.assert.equal
+  args:
+    - name: 实际值
+      type: Any
+    - name: 期望值
+      type: Any
+assert_not_equal:
+  name: 断言两个值不相等
+  info: 比较两个 Python 值；参数可使用 {{ stepN }} 引用此前成功步骤的返回值，相等时抛出异常
+  component: core.assert.not_equal
+  args:
+    - name: 实际值
+      type: Any
+    - name: 期望值
+      type: Any
+assert_true:
+  name: 断言条件为真
+  info: 判断 Python 值的真值；参数可使用 {{ stepN }} 引用此前成功步骤的返回值，结果为假时抛出异常
+  component: core.assert.is_true
+  args:
+    - name: 要检查的条件
+      type: Any
+assert_false:
+  name: 断言条件为假
+  info: 判断 Python 值的真值；参数可使用 {{ stepN }} 引用此前成功步骤的返回值，结果为真时抛出异常
+  component: core.assert.is_false
+  args:
+    - name: 要检查的条件
+      type: Any
 fs_same:
   name: 判断两个文件内容是否相等
   info: 不区分文件创建时间、权限等属性，仅比较文件内容是否相同
@@ -42,7 +74,7 @@ fs_contains_lines:
       type: List[str]
 fs_slice:
   name: 提取文件指定行
-  info: 使用 UTF-8 编码读取源文件并提取指定行，行号从 1 开始。提取结果将覆盖写入输出文件且末尾统一保留一个换行符，行号超出范围时抛出异常
+  info: 使用 UTF-8 编码读取源文件并提取指定行，行号从 1 开始。提取结果将作为步骤返回值，并覆盖写入输出文件且末尾统一保留一个换行符，行号超出范围时抛出异常
   component: core.fs.slice
   args:
     - name: 源文件路径
@@ -92,7 +124,7 @@ fs_create_dir:
       type: List[str]
 fs_command:
   name: 执行系统命令（非必要不使用）
-  info: 在指定工作目录中通过系统默认 Shell 同步执行命令。标准输出和标准错误会逐行写入 KDT 日志；执行期间会阻塞当前步骤，工作目录不存在或命令返回非零状态时会抛出异常
+  info: 在指定工作目录中通过系统默认 Shell 同步执行命令。标准输出和标准错误会逐行写入 KDT 日志，标准输出同时作为步骤返回值；执行期间会阻塞当前步骤，工作目录不存在或命令返回非零状态时会抛出异常
   component: core.fs.command
   args:
     - name: 工作目录

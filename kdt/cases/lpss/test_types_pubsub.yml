@@ -1,4 +1,7 @@
-info: 【发布订阅】复杂消息结构的序列化与反序列化验证
+info:
+  name: 【发布订阅】复杂消息结构的序列化与反序列化验证
+  input: 包含基础类型、字符串和序列字段的 TestTypes 消息
+  expected: 消息经发布、序列化、传输和反序列化后全部字段保持一致
 steps:
   - name: fs_remove_recursive
     args:
@@ -7,11 +10,6 @@ steps:
     dep: true
     args:
       - - tmp-lpss-test-types-pubsub
-  - name: fs_write
-    dep: true
-    args:
-      - tmp-lpss-test-types-pubsub/expected.txt
-      - pass
   - name: lpss_msg_testsub
     dep: true
     args:
@@ -38,11 +36,11 @@ steps:
       - tmp-lpss-test-types-pubsub/received.txt
       - 1
       - tmp-lpss-test-types-pubsub/first-result.txt
-  - name: fs_same
+  - name: assert_equal
     dep: true
     args:
-      - tmp-lpss-test-types-pubsub/expected.txt
-      - tmp-lpss-test-types-pubsub/first-result.txt
+      - "{{ step7 }}"
+      - pass
   - name: lpss_stop
     args:
       - msg.testpub

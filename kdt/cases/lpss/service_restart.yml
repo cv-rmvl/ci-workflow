@@ -1,4 +1,8 @@
-info: 【服务】服务正常退出后重新上线，客户端能正常调用
+info:
+  name: 【服务】服务正常退出后重新上线，客户端能正常调用
+  background: 客户端能够正常发现并调用已上线的 SetBool 服务
+  input: 正常终止服务，验证离线超时后使用相同服务名重新上线
+  expected: 离线期间客户端正常超时，服务重启后能够再次调用并获得正确响应
 steps:
   - name: fs_remove_recursive
     args:

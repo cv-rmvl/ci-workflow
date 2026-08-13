@@ -1,4 +1,7 @@
-info: 【服务】复杂消息结构的序列化与反序列化验证
+info:
+  name: 【服务】复杂消息结构的序列化与反序列化验证
+  input: 包含复杂字段的 TestTypes 服务请求与响应
+  expected: 请求和响应经序列化、传输及反序列化后全部字段保持一致
 steps:
   - name: fs_remove_recursive
     args:

@@ -1,4 +1,7 @@
-info: Srv 正常生成文件且编译通过
+info:
+  name: Srv 正常生成文件且编译通过
+  input: Srv 描述文件、CMakeLists.txt 和使用生成服务类型的源文件
+  expected: 服务类型正常生成，序列化与反序列化测试能够编译运行
 steps:
   - name: fs_remove_recursive
     args:

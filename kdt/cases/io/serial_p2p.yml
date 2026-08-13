@@ -1,4 +1,10 @@
-info: 串口点到点互传数据能正常接收
+info:
+  name: 串口点到点互传数据能正常接收
+  background: 运行环境支持 POSIX PTY 且已安装 socat
+  input:
+    - 一对互相连通、波特率为 115200 的虚拟串口
+    - '文本 test string: serial p2p'
+  expected: 接收端得到与发送内容完全一致的文本
 steps:
   - name: fs_remove_recursive
     args:

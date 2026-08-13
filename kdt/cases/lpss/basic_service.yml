@@ -1,4 +1,11 @@
-info: 【服务】客户端正常发送请求能收到响应
+info:
+  name: 【服务】客户端正常发送请求能收到响应
+  input:
+    - 向 SetBool 服务依次发送 true 和 false 请求
+    - 向不存在的服务发起超时为 300 ms 的请求
+  expected:
+    - 已上线服务分别返回 enabled 和 disabled
+    - 不存在的服务在限定时间内正常超时退出
 steps:
   - name: fs_remove_recursive
     args:

@@ -6,6 +6,7 @@ from typing import List, Mapping, Tuple, Union
 from .exceptions import KeywordSkipped
 from .keywords import keywords
 from .logger import logger
+from .results import StepResultCache
 
 
 _CASES_DIR = Path(__file__).resolve().parents[1] / "cases"
@@ -74,11 +75,17 @@ def _load_case(case_file: Path):
 
     info = definition.get("info")
     steps = definition.get("steps")
-    if not isinstance(info, str) or not info.strip():
-        raise CaseDefinitionError("A test case must contain non-empty info")
+    if isinstance(info, Mapping):
+        name = info.get("name")
+    else:
+        name = info
+    if not isinstance(name, str) or not name.strip():
+        raise CaseDefinitionError(
+            "A test case must contain a non-empty info.name"
+        )
     if not isinstance(steps, list):
         raise CaseDefinitionError("Test case steps must be a list")
-    return info.strip(), steps
+    return name.strip(), steps
 
 
 def _case_file(case_name: str) -> Path:
@@ -114,6 +121,7 @@ def run_case(case_name: str):
     skipped: List[Tuple[int, str, Exception]] = []
     previous_succeeded = True
     environment_skipped = False
+    results = StepResultCache()
     _, steps = _load_case(_case_file(case_name))
     for index, step in enumerate(steps, start=1):
         keyword_name = "<unknown>"
@@ -148,7 +156,9 @@ def run_case(case_name: str):
                     f"Arguments of step '{keyword_name}' must be a list"
                 )
             logger.info(f"Step {index}: {keyword_name}")
-            keywords.call(keyword_name, *args)
+            resolved_args = results.resolve_arguments(args, index)
+            result = keywords.call(keyword_name, *resolved_args)
+            results.store(index, result)
             logger.success(f"Step {index}: {keyword_name} done!")
             previous_succeeded = True
         except KeywordSkipped as exc:

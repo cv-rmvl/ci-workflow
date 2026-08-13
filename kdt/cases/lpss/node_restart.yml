@@ -1,4 +1,8 @@
-info: 【节点管理】节点正常退出后重新发现并恢复通信
+info:
+  name: 【节点管理】节点正常退出后重新发现并恢复通信
+  background: 通信双方已完成首次发现并能够正常收发消息
+  input: 分别正常终止并重启发布节点和订阅节点
+  expected: 存活节点能够清理旧节点并发现重启节点，通信自动恢复
 steps:
   - name: fs_remove_recursive
     args:

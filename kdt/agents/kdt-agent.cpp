@@ -170,6 +170,7 @@ std::string case_id(const fs::path &cases_root, const fs::path &file) {
 std::string yaml_info(const fs::path &path, std::string fallback) {
     const auto content = read_text(path);
     std::size_t begin = 0;
+    bool nested_info = false;
     while (begin < content.size()) {
         const auto end = content.find('\n', begin);
         auto line = content.substr(
@@ -190,7 +191,26 @@ std::string yaml_info(const fs::path &path, std::string fallback) {
                 if (!value.empty())
                     return value;
             }
-            break;
+            nested_info = true;
+        } else if (nested_info) {
+            if (!line.empty() && line.front() != ' ' && line.front() != '\t')
+                break;
+            const auto first = line.find_first_not_of(" \t");
+            if (first != std::string::npos && line.substr(first).starts_with("name:")) {
+                auto value = line.substr(first + 5);
+                const auto value_first = value.find_first_not_of(" \t");
+                if (value_first != std::string::npos) {
+                    value.erase(0, value_first);
+                    const auto last = value.find_last_not_of(" \t");
+                    value.erase(last + 1);
+                    if (value.size() >= 2 &&
+                        ((value.front() == '\'' && value.back() == '\'') ||
+                         (value.front() == '"' && value.back() == '"')))
+                        value = value.substr(1, value.size() - 2);
+                    if (!value.empty())
+                        return value;
+                }
+            }
         }
         if (end == std::string::npos)
             break;

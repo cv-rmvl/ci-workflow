@@ -1,4 +1,7 @@
-info: 【发布订阅】单发布者多订阅者，每个订阅者均能受到发布消息
+info:
+  name: 【发布订阅】单发布者多订阅者，每个订阅者均能受到发布消息
+  input: 单个发布者以 20 ms 周期发送固定文本，3 个订阅者同时接收
+  expected: 3 个订阅者均能收到发布内容
 steps:
   - name: fs_remove_recursive
     args:
