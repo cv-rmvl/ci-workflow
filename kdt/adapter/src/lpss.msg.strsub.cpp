@@ -1,3 +1,4 @@
+#include <cstdio>
 #include <fstream>
 
 #include <fmt/format.h>
@@ -16,8 +17,9 @@ public:
     KdtCstStringSubscriber(std::string_view node_name, std::string_view topic, std::string_view outfile) : Node(node_name) {
         _ofs = std::ofstream(outfile.data(), std::ios::out);
         _sub = this->createSubscriber<msg::String>(topic, [this, outfile](const msg::String &msg) {
-            fmt::println("Received message: {} -> {}", msg.data, outfile);
             _ofs << msg.data << std::endl;
+            fmt::println("Received message: {} -> {}", msg.data, outfile);
+            std::fflush(stdout);
         });
     }
 
@@ -51,8 +53,9 @@ int main(int argc, char *argv[]) {
     lpss::Node node(node_name);
     auto subscriber = node.createSubscriber<msg::String>(
         topic, [&stream, outfile](const msg::String &msg) {
-            fmt::println("Received message: {} -> {}", msg.data, outfile);
             stream << msg.data << std::endl;
+            fmt::println("Received message: {} -> {}", msg.data, outfile);
+            std::fflush(stdout);
         });
     if (subscriber.invalid()) {
         fmt::println(stderr, "Failed to create String subscriber: {}", topic);

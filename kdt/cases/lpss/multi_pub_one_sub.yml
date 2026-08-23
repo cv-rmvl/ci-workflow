@@ -41,10 +41,14 @@ steps:
       - /kdt/pubsub/multi-pub-one-sub
       - KDT LPSS publisher 3
       - 20
-  - name: logic_wait
+  - name: fs_wait_contains_lines
     dep: true
     args:
-      - 0.5
+      - tmp-lpss-multi-pub-one-sub/received.txt
+      - - KDT LPSS publisher 1
+        - KDT LPSS publisher 2
+        - KDT LPSS publisher 3
+      - 5.0
   - name: fs_unique_count
     dep: true
     args:

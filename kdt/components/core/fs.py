@@ -1,6 +1,7 @@
 """文件系统相关的基础组件。"""
 
 import shutil
+import time
 from pathlib import Path
 from typing import List
 
@@ -89,6 +90,44 @@ def contains_lines(path: str, expected: List[str]):
         errmsg = f"Expected lines not found in {path}: {missing_lines}"
         logger.error(errmsg)
         raise AssertionError(errmsg)
+
+
+def wait_contains_lines(path: str, expected: List[str], timeout: float):
+    """
+    等待 UTF-8 文本文件包含给定的全部完整行。
+
+    该组件只负责等待异步文件输出达到可校验状态，不替代后续断言。
+    文件尚未创建时按空文件处理，超时后抛出 TimeoutError。
+
+    :param path: 文件路径
+    :param expected: 等待出现的完整行列表
+    :param timeout: 最长等待时间，单位为秒
+    """
+    if timeout <= 0:
+        raise ValueError("timeout must be greater than zero")
+
+    expected_lines = set(expected)
+    deadline = time.monotonic() + timeout
+    missing = expected_lines
+    while True:
+        try:
+            lines = set(Path(path).read_text(encoding="utf-8").splitlines())
+        except FileNotFoundError:
+            lines = set()
+        missing = expected_lines - lines
+        if not missing:
+            return
+
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            break
+        time.sleep(min(0.05, remaining))
+
+    missing_lines = ", ".join(repr(line) for line in sorted(missing))
+    raise TimeoutError(
+        f"Timed out after {timeout:g}s waiting for lines in {path}: "
+        f"{missing_lines}"
+    )
 
 
 def slice(source: str, line: int, target: str):

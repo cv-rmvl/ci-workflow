@@ -72,6 +72,17 @@ fs_contains_lines:
       type: str
     - name: 必须存在的完整行
       type: List[str]
+fs_wait_contains_lines:
+  name: 等待文件包含指定行
+  info: 等待异步输出文件包含给定的全部完整行，文件尚未创建时按空文件处理，到达最长等待时间后抛出异常，该组件只负责同步，不替代后续断言
+  component: core.fs.wait_contains_lines
+  args:
+    - name: 文件路径
+      type: str
+    - name: 等待出现的完整行
+      type: List[str]
+    - name: 最长等待时间，单位为秒
+      type: float
 fs_slice:
   name: 提取文件指定行
   info: 使用 UTF-8 编码读取源文件并提取指定行，行号从 1 开始。提取结果将作为步骤返回值，并覆盖写入输出文件且末尾统一保留一个换行符，行号超出范围时抛出异常
