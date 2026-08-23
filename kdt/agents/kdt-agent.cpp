@@ -4,6 +4,7 @@
 #include <fstream>
 #include <future>
 #include <mutex>
+#include <optional>
 
 #ifndef _WIN32
 #include <sys/wait.h>
@@ -97,6 +98,15 @@ void prune_empty_parents(fs::path path, const fs::path &root) {
 bool is_yaml(const fs::path &path) {
     auto ext = path.extension().string();
     return ext == ".yml" || ext == ".yaml";
+}
+
+fs::path path_from_utf8(std::string_view value) {
+#ifdef __cpp_char8_t
+    const auto *begin = reinterpret_cast<const char8_t *>(value.data());
+    return fs::path(begin, begin + value.size());
+#else
+    return fs::u8path(value.begin(), value.end());
+#endif
 }
 
 bool valid_segment(std::string_view value) {
@@ -325,7 +335,7 @@ std::string shell_quote(std::string_view value) {
 }
 
 int execute_plans(const fs::path &root, const std::vector<std::string> &plans,
-                  ExecutionJob &job) {
+                  const std::optional<std::string> &rmvl_dir, ExecutionJob &job) {
 #ifdef _WIN32
     std::string command =
         fmt::format("cd /d {} && python -u {}", shell_quote(root.string()),
@@ -340,6 +350,8 @@ int execute_plans(const fs::path &root, const std::vector<std::string> &plans,
             throw std::invalid_argument("Invalid plan name");
         command += " " + shell_quote(plan);
     }
+    if (rmvl_dir)
+        command += " --rmvl-dir " + shell_quote(*rmvl_dir);
     command += " 2>&1";
 
 #ifdef _WIN32
@@ -489,11 +501,22 @@ int main(int argc, char **argv) try {
     app.post("/api/execute", kdt::guarded([&](const Request &req, Response &res) {
                  auto body = json::parse(req.body);
                  auto selected = body.at("plans").get<std::vector<std::string>>();
+                 std::optional<std::string> rmvl_dir;
                  if (selected.empty())
                      throw std::invalid_argument("Select at least one plan");
                  for (const auto &plan : selected)
                      if (!kdt::valid_segment(plan))
                          throw std::invalid_argument("Invalid plan name");
+                 if (body.contains("rmvlDir") && !body.at("rmvlDir").is_null()) {
+                     if (!body.at("rmvlDir").is_string())
+                         throw std::invalid_argument("RMVL directory must be a string");
+                     auto value = body.at("rmvlDir").get<std::string>();
+                     if (!value.empty()) {
+                         if (!fs::is_directory(kdt::path_from_utf8(value)))
+                             throw std::invalid_argument("RMVL directory does not exist");
+                         rmvl_dir = std::move(value);
+                     }
+                 }
                  {
                      std::scoped_lock lock(execution.mutex);
                      if (execution.running)
@@ -506,10 +529,13 @@ int main(int argc, char **argv) try {
                      ++execution.revision;
                  }
 
-                 execution.task = std::async(std::launch::async, [&execution, root, selected = std::move(selected)] {
+                 execution.task = std::async(std::launch::async, [
+                     &execution, root, selected = std::move(selected),
+                     rmvl_dir = std::move(rmvl_dir)
+                 ] {
                      int status = 1;
                      try {
-                         status = execute_plans(root, selected, execution);
+                         status = execute_plans(root, selected, rmvl_dir, execution);
                      } catch (const std::exception &error) {
                          std::scoped_lock lock(execution.mutex);
                          execution.output += fmt::format("[erro] {}\n", error.what());
