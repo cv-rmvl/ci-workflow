@@ -51,7 +51,7 @@ steps:
   - name: logic_wait
     dep: true
     args:
-      - 0.1
+      - 0.2
   - name: fs_append
     dep: true
     args:
@@ -62,122 +62,122 @@ steps:
     args:
       - tmp-serial/serial-multi-expected.txt
       - serial multi 02
-  - name: logic_wait
-    dep: true
-    args:
-      - 0.1
-  - name: fs_append
-    dep: true
-    args:
-      - tmp-serial/serial-multi-input.txt
-      - serial multi 03
-  - name: fs_append
-    dep: true
-    args:
-      - tmp-serial/serial-multi-expected.txt
-      - serial multi 03
-  - name: logic_wait
-    dep: true
-    args:
-      - 0.1
-  - name: fs_append
-    dep: true
-    args:
-      - tmp-serial/serial-multi-input.txt
-      - serial multi 04
-  - name: fs_append
-    dep: true
-    args:
-      - tmp-serial/serial-multi-expected.txt
-      - serial multi 04
-  - name: logic_wait
-    dep: true
-    args:
-      - 0.1
-  - name: fs_append
-    dep: true
-    args:
-      - tmp-serial/serial-multi-input.txt
-      - serial multi 05
-  - name: fs_append
-    dep: true
-    args:
-      - tmp-serial/serial-multi-expected.txt
-      - serial multi 05
-  - name: logic_wait
-    dep: true
-    args:
-      - 0.1
-  - name: fs_append
-    dep: true
-    args:
-      - tmp-serial/serial-multi-input.txt
-      - serial multi 06
-  - name: fs_append
-    dep: true
-    args:
-      - tmp-serial/serial-multi-expected.txt
-      - serial multi 06
-  - name: logic_wait
-    dep: true
-    args:
-      - 0.1
-  - name: fs_append
-    dep: true
-    args:
-      - tmp-serial/serial-multi-input.txt
-      - serial multi 07
-  - name: fs_append
-    dep: true
-    args:
-      - tmp-serial/serial-multi-expected.txt
-      - serial multi 07
-  - name: logic_wait
-    dep: true
-    args:
-      - 0.1
-  - name: fs_append
-    dep: true
-    args:
-      - tmp-serial/serial-multi-input.txt
-      - serial multi 08
-  - name: fs_append
-    dep: true
-    args:
-      - tmp-serial/serial-multi-expected.txt
-      - serial multi 08
-  - name: logic_wait
-    dep: true
-    args:
-      - 0.1
-  - name: fs_append
-    dep: true
-    args:
-      - tmp-serial/serial-multi-input.txt
-      - serial multi 09
-  - name: fs_append
-    dep: true
-    args:
-      - tmp-serial/serial-multi-expected.txt
-      - serial multi 09
-  - name: logic_wait
-    dep: true
-    args:
-      - 0.1
-  - name: fs_append
-    dep: true
-    args:
-      - tmp-serial/serial-multi-input.txt
-      - serial multi 10
-  - name: fs_append
-    dep: true
-    args:
-      - tmp-serial/serial-multi-expected.txt
-      - serial multi 10
   - name: logic_wait
     dep: true
     args:
       - 0.2
+  - name: fs_append
+    dep: true
+    args:
+      - tmp-serial/serial-multi-input.txt
+      - serial multi 03
+  - name: fs_append
+    dep: true
+    args:
+      - tmp-serial/serial-multi-expected.txt
+      - serial multi 03
+  - name: logic_wait
+    dep: true
+    args:
+      - 0.2
+  - name: fs_append
+    dep: true
+    args:
+      - tmp-serial/serial-multi-input.txt
+      - serial multi 04
+  - name: fs_append
+    dep: true
+    args:
+      - tmp-serial/serial-multi-expected.txt
+      - serial multi 04
+  - name: logic_wait
+    dep: true
+    args:
+      - 0.2
+  - name: fs_append
+    dep: true
+    args:
+      - tmp-serial/serial-multi-input.txt
+      - serial multi 05
+  - name: fs_append
+    dep: true
+    args:
+      - tmp-serial/serial-multi-expected.txt
+      - serial multi 05
+  - name: logic_wait
+    dep: true
+    args:
+      - 0.2
+  - name: fs_append
+    dep: true
+    args:
+      - tmp-serial/serial-multi-input.txt
+      - serial multi 06
+  - name: fs_append
+    dep: true
+    args:
+      - tmp-serial/serial-multi-expected.txt
+      - serial multi 06
+  - name: logic_wait
+    dep: true
+    args:
+      - 0.2
+  - name: fs_append
+    dep: true
+    args:
+      - tmp-serial/serial-multi-input.txt
+      - serial multi 07
+  - name: fs_append
+    dep: true
+    args:
+      - tmp-serial/serial-multi-expected.txt
+      - serial multi 07
+  - name: logic_wait
+    dep: true
+    args:
+      - 0.2
+  - name: fs_append
+    dep: true
+    args:
+      - tmp-serial/serial-multi-input.txt
+      - serial multi 08
+  - name: fs_append
+    dep: true
+    args:
+      - tmp-serial/serial-multi-expected.txt
+      - serial multi 08
+  - name: logic_wait
+    dep: true
+    args:
+      - 0.2
+  - name: fs_append
+    dep: true
+    args:
+      - tmp-serial/serial-multi-input.txt
+      - serial multi 09
+  - name: fs_append
+    dep: true
+    args:
+      - tmp-serial/serial-multi-expected.txt
+      - serial multi 09
+  - name: logic_wait
+    dep: true
+    args:
+      - 0.2
+  - name: fs_append
+    dep: true
+    args:
+      - tmp-serial/serial-multi-input.txt
+      - serial multi 10
+  - name: fs_append
+    dep: true
+    args:
+      - tmp-serial/serial-multi-expected.txt
+      - serial multi 10
+  - name: logic_wait
+    dep: true
+    args:
+      - 0.5
   - name: serial_stop
     args: []
   - name: fs_same
