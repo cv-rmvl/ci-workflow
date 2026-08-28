@@ -22,20 +22,6 @@ def strpub(node_name: str, topic: str, message: str, period_ms: int):
     )
 
 
-def strsub(node_name: str, topic: str, output: str):
-    """
-    注册字符串消息订阅任务，将消息逐行写入文件。
-
-    :param node_name: LPSS 订阅节点名称
-    :param topic: 订阅主题
-    :param output: 接收消息的输出文件路径
-    """
-    return _start(
-        LpssAdapter.MSG_STRSUB,
-        [node_name, topic, output],
-    )
-
-
 def strcollect(node_name: str, topic: str):
     """
     注册字符串消息订阅任务并将接收结果返回给 KDT。
@@ -64,17 +50,6 @@ def testpub(node_name: str, topic: str, period_ms: int):
     if period_ms <= 0:
         raise ValueError("period_ms must be greater than zero")
     return _start(LpssAdapter.MSG_TESTPUB, [node_name, topic, str(period_ms)])
-
-
-def testsub(node_name: str, topic: str, output: str):
-    """
-    注册 KDT TestTypes 复合消息订阅任务并逐行记录校验结果。
-
-    :param node_name: LPSS 订阅节点名称
-    :param topic: 订阅主题
-    :param output: 校验结果输出文件路径
-    """
-    return _start(LpssAdapter.MSG_TESTSUB, [node_name, topic, output])
 
 
 def testcheck(node_name: str, topic: str):

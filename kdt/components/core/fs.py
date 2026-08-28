@@ -1,7 +1,6 @@
 """文件系统相关的基础组件。"""
 
 import shutil
-import time
 from pathlib import Path
 from typing import List
 
@@ -47,87 +46,6 @@ def different(path_a: str, path_b: str):
         errmsg = f"File contents are the same: {path_a} == {path_b}"
         logger.error(errmsg)
         raise AssertionError(errmsg)
-
-
-def unique_count(path: str, expected: int):
-    """
-    判断 UTF-8 文本文件中不同行的数量是否等于期望值。
-
-    比较时仅移除每行的换行符，保留其他字符；相同内容出现多次只计为
-    一种，空行也作为一种内容参与统计。
-
-    :param path: 文件路径
-    :param expected: 期望的不同行数量
-    """
-    if expected < 0:
-        raise ValueError("expected must be greater than or equal to zero")
-
-    lines = Path(path).read_text(encoding="utf-8").splitlines()
-    actual = len(set(lines))
-    if actual != expected:
-        errmsg = (
-            f"Unique line count differs for {path}: "
-            f"expected {expected}, got {actual}"
-        )
-        logger.error(errmsg)
-        raise AssertionError(errmsg)
-
-
-def contains_lines(path: str, expected: List[str]):
-    """
-    判断给定的每个字符串是否都能在 UTF-8 文本文件中找到匹配行。
-
-    比较时仅移除每行的换行符，保留其他字符；行顺序和重复次数不参与
-    判断，文件中允许存在未列入 expected 的额外行。
-
-    :param path: 文件路径
-    :param expected: 必须存在于文件中的完整行列表
-    """
-    lines = set(Path(path).read_text(encoding="utf-8").splitlines())
-    missing = set(expected) - lines
-    if missing:
-        missing_lines = ", ".join(repr(line) for line in sorted(missing))
-        errmsg = f"Expected lines not found in {path}: {missing_lines}"
-        logger.error(errmsg)
-        raise AssertionError(errmsg)
-
-
-def wait_contains_lines(path: str, expected: List[str], timeout: float):
-    """
-    等待 UTF-8 文本文件包含给定的全部完整行。
-
-    该组件只负责等待异步文件输出达到可校验状态，不替代后续断言。
-    文件尚未创建时按空文件处理，超时后抛出 TimeoutError。
-
-    :param path: 文件路径
-    :param expected: 等待出现的完整行列表
-    :param timeout: 最长等待时间，单位为秒
-    """
-    if timeout <= 0:
-        raise ValueError("timeout must be greater than zero")
-
-    expected_lines = set(expected)
-    deadline = time.monotonic() + timeout
-    missing = expected_lines
-    while True:
-        try:
-            lines = set(Path(path).read_text(encoding="utf-8").splitlines())
-        except FileNotFoundError:
-            lines = set()
-        missing = expected_lines - lines
-        if not missing:
-            return
-
-        remaining = deadline - time.monotonic()
-        if remaining <= 0:
-            break
-        time.sleep(min(0.05, remaining))
-
-    missing_lines = ", ".join(repr(line) for line in sorted(missing))
-    raise TimeoutError(
-        f"Timed out after {timeout:g}s waiting for lines in {path}: "
-        f"{missing_lines}"
-    )
 
 
 def slice(source: str, line: int, target: str):
