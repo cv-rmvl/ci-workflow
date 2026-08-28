@@ -4,25 +4,11 @@ info:
   input: 分别正常终止并重启发布节点和订阅节点
   expected: 存活节点能够清理旧节点并发现重启节点，通信自动恢复
 steps:
-  - name: fs_remove_recursive
-    args:
-      - - tmp-lpss-node-restart
-  - name: fs_create_dir
-    dep: true
-    args:
-      - - tmp-lpss-node-restart
-
   # 发布节点重启：订阅节点保持运行，验证 Writer 移除后能够重新注册。
-  - name: lpss_msg_strsub
-    dep: true
+  - name: lpss_msg_strcollect
     args:
       - kdt_node_restart_writer_observer
       - /kdt/node/restart/writer
-      - tmp-lpss-node-restart/writer-received.txt
-  - name: logic_wait
-    dep: true
-    args:
-      - 0.2
   - name: lpss_msg_strpub
     dep: true
     args:
@@ -30,10 +16,18 @@ steps:
       - /kdt/node/restart/writer
       - before publisher restart
       - 20
-  - name: logic_wait
+  - name: lpss_wait_result
     dep: true
     args:
-      - 0.5
+      - "{{ step1 }}"
+      - 1
+      - false
+      - 5.0
+  - name: assert_equal
+    dep: true
+    args:
+      - "{{ step3 }}"
+      - before publisher restart
   - name: lpss_stop
     args:
       - msg.strpub
@@ -50,10 +44,19 @@ steps:
       - /kdt/node/restart/writer
       - after publisher restart
       - 20
-  - name: logic_wait
+  - name: lpss_wait_result
     dep: true
     args:
-      - 0.5
+      - "{{ step1 }}"
+      - 2
+      - true
+      - 5.0
+  - name: assert_equal
+    dep: true
+    args:
+      - "{{ step8 }}"
+      - - after publisher restart
+        - before publisher restart
   - name: lpss_stop
     args:
       - msg.strpub
@@ -64,12 +67,6 @@ steps:
       - msg.strsub
       - SIGTERM
       - kdt_node_restart_writer_observer
-  - name: fs_contains_lines
-    dep: true
-    args:
-      - tmp-lpss-node-restart/writer-received.txt
-      - - before publisher restart
-        - after publisher restart
 
   # 订阅节点重启：发布节点保持运行，验证 Reader 移除后能够重新注册。
   - name: lpss_msg_strpub
@@ -79,20 +76,23 @@ steps:
       - /kdt/node/restart/reader
       - subscriber restart message
       - 20
-  - name: logic_wait
-    dep: true
-    args:
-      - 0.2
-  - name: lpss_msg_strsub
+  - name: lpss_msg_strcollect
     dep: true
     args:
       - kdt_node_restart_reader
       - /kdt/node/restart/reader
-      - tmp-lpss-node-restart/reader-before.txt
-  - name: logic_wait
+  - name: lpss_wait_result
     dep: true
     args:
-      - 0.5
+      - "{{ step13 }}"
+      - 1
+      - false
+      - 5.0
+  - name: assert_equal
+    dep: true
+    args:
+      - "{{ step14 }}"
+      - subscriber restart message
   - name: lpss_stop
     args:
       - msg.strsub
@@ -102,16 +102,23 @@ steps:
     dep: true
     args:
       - 0.2
-  - name: lpss_msg_strsub
+  - name: lpss_msg_strcollect
     dep: true
     args:
       - kdt_node_restart_reader
       - /kdt/node/restart/reader
-      - tmp-lpss-node-restart/reader-after.txt
-  - name: logic_wait
+  - name: lpss_wait_result
     dep: true
     args:
-      - 0.5
+      - "{{ step18 }}"
+      - 1
+      - false
+      - 5.0
+  - name: assert_equal
+    dep: true
+    args:
+      - "{{ step19 }}"
+      - subscriber restart message
   - name: lpss_stop
     args:
       - msg.strsub
@@ -122,17 +129,3 @@ steps:
       - msg.strpub
       - SIGTERM
       - kdt_node_restart_reader_source
-  - name: fs_contains_lines
-    dep: true
-    args:
-      - tmp-lpss-node-restart/reader-before.txt
-      - - subscriber restart message
-  - name: fs_contains_lines
-    dep: true
-    args:
-      - tmp-lpss-node-restart/reader-after.txt
-      - - subscriber restart message
-
-  - name: fs_remove_recursive
-    args:
-      - - tmp-lpss-node-restart

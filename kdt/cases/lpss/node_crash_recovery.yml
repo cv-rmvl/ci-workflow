@@ -4,25 +4,11 @@ info:
   input: 分别使用 SIGKILL 强制终止发布节点和订阅节点，等待心跳清理后重启
   expected: 存活节点能够移除异常节点并发现重启节点，通信自动恢复
 steps:
-  - name: fs_remove_recursive
-    args:
-      - - tmp-lpss-node-crash-recovery
-  - name: fs_create_dir
-    dep: true
-    args:
-      - - tmp-lpss-node-crash-recovery
-
   # Writer 异常退出：Subscriber 始终存活，等待心跳清理后重新发现 Writer。
-  - name: lpss_msg_strsub
-    dep: true
+  - name: lpss_msg_strcollect
     args:
       - kdt_crash_writer_observer
       - /kdt/node/crash/writer
-      - tmp-lpss-node-crash-recovery/writer-received.txt
-  - name: logic_wait
-    dep: true
-    args:
-      - 0.2
   - name: lpss_msg_strpub
     dep: true
     args:
@@ -30,15 +16,18 @@ steps:
       - /kdt/node/crash/writer
       - before writer crash
       - 20
-  - name: logic_wait
+  - name: lpss_wait_result
     dep: true
     args:
-      - 0.7
-  - name: fs_contains_lines
+      - "{{ step1 }}"
+      - 1
+      - false
+      - 5.0
+  - name: assert_equal
     dep: true
     args:
-      - tmp-lpss-node-crash-recovery/writer-received.txt
-      - - before writer crash
+      - "{{ step3 }}"
+      - before writer crash
   - name: lpss_stop
     args:
       - msg.strpub
@@ -55,10 +44,19 @@ steps:
       - /kdt/node/crash/writer
       - after writer recovery
       - 20
-  - name: logic_wait
+  - name: lpss_wait_result
     dep: true
     args:
-      - 0.7
+      - "{{ step1 }}"
+      - 2
+      - true
+      - 5.0
+  - name: assert_equal
+    dep: true
+    args:
+      - "{{ step8 }}"
+      - - after writer recovery
+        - before writer crash
   - name: lpss_stop
     args:
       - msg.strpub
@@ -69,12 +67,6 @@ steps:
       - msg.strsub
       - SIGTERM
       - kdt_crash_writer_observer
-  - name: fs_contains_lines
-    dep: true
-    args:
-      - tmp-lpss-node-crash-recovery/writer-received.txt
-      - - before writer crash
-        - after writer recovery
 
   # Reader 异常退出：Publisher 始终存活，等待心跳清理后重新发现 Reader。
   - name: lpss_msg_strpub
@@ -84,25 +76,23 @@ steps:
       - /kdt/node/crash/reader
       - reader recovery message
       - 20
-  - name: logic_wait
-    dep: true
-    args:
-      - 0.2
-  - name: lpss_msg_strsub
+  - name: lpss_msg_strcollect
     dep: true
     args:
       - kdt_crash_reader
       - /kdt/node/crash/reader
-      - tmp-lpss-node-crash-recovery/reader-before.txt
-  - name: logic_wait
+  - name: lpss_wait_result
     dep: true
     args:
-      - 0.7
-  - name: fs_contains_lines
+      - "{{ step13 }}"
+      - 1
+      - false
+      - 5.0
+  - name: assert_equal
     dep: true
     args:
-      - tmp-lpss-node-crash-recovery/reader-before.txt
-      - - reader recovery message
+      - "{{ step14 }}"
+      - reader recovery message
   - name: lpss_stop
     args:
       - msg.strsub
@@ -112,16 +102,23 @@ steps:
     dep: true
     args:
       - 1
-  - name: lpss_msg_strsub
+  - name: lpss_msg_strcollect
     dep: true
     args:
       - kdt_crash_reader
       - /kdt/node/crash/reader
-      - tmp-lpss-node-crash-recovery/reader-after.txt
-  - name: logic_wait
+  - name: lpss_wait_result
     dep: true
     args:
-      - 0.7
+      - "{{ step18 }}"
+      - 1
+      - false
+      - 5.0
+  - name: assert_equal
+    dep: true
+    args:
+      - "{{ step19 }}"
+      - reader recovery message
   - name: lpss_stop
     args:
       - msg.strsub
@@ -132,17 +129,3 @@ steps:
       - msg.strpub
       - SIGTERM
       - kdt_crash_reader_source
-  - name: fs_contains_lines
-    dep: true
-    args:
-      - tmp-lpss-node-crash-recovery/reader-before.txt
-      - - reader recovery message
-  - name: fs_contains_lines
-    dep: true
-    args:
-      - tmp-lpss-node-crash-recovery/reader-after.txt
-      - - reader recovery message
-
-  - name: fs_remove_recursive
-    args:
-      - - tmp-lpss-node-crash-recovery
