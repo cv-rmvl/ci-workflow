@@ -3,35 +3,20 @@ info:
   input: 同一主题下的 3 个发布者分别发送不同文本，3 个订阅者同时接收
   expected: 每个订阅者均能找到全部 3 种发布内容
 steps:
-  - name: fs_remove_recursive
-    args:
-      - - tmp-lpss-multi-pub-multi-sub
-  - name: fs_create_dir
-    dep: true
-    args:
-      - - tmp-lpss-multi-pub-multi-sub
-  - name: lpss_msg_strsub
-    dep: true
+  - name: lpss_msg_strcollect
     args:
       - kdt_multi_pub_multi_subscriber_1
       - /kdt/pubsub/multi-pub-multi-sub
-      - tmp-lpss-multi-pub-multi-sub/subscriber-1.txt
-  - name: lpss_msg_strsub
+  - name: lpss_msg_strcollect
     dep: true
     args:
       - kdt_multi_pub_multi_subscriber_2
       - /kdt/pubsub/multi-pub-multi-sub
-      - tmp-lpss-multi-pub-multi-sub/subscriber-2.txt
-  - name: lpss_msg_strsub
+  - name: lpss_msg_strcollect
     dep: true
     args:
       - kdt_multi_pub_multi_subscriber_3
       - /kdt/pubsub/multi-pub-multi-sub
-      - tmp-lpss-multi-pub-multi-sub/subscriber-3.txt
-  - name: logic_wait
-    dep: true
-    args:
-      - 0.2
   - name: lpss_msg_strpub
     dep: true
     args:
@@ -53,43 +38,45 @@ steps:
       - /kdt/pubsub/multi-pub-multi-sub
       - KDT LPSS multi publisher 3
       - 20
-  - name: logic_wait
+  - name: lpss_wait_result
     dep: true
     args:
-      - 0.7
-  - name: fs_unique_count
-    dep: true
-    args:
-      - tmp-lpss-multi-pub-multi-sub/subscriber-1.txt
+      - "{{ step1 }}"
       - 3
-  - name: fs_contains_lines
+      - true
+      - 5.0
+  - name: assert_equal
     dep: true
     args:
-      - tmp-lpss-multi-pub-multi-sub/subscriber-1.txt
+      - "{{ step7 }}"
       - - KDT LPSS multi publisher 1
         - KDT LPSS multi publisher 2
         - KDT LPSS multi publisher 3
-  - name: fs_unique_count
+  - name: lpss_wait_result
     dep: true
     args:
-      - tmp-lpss-multi-pub-multi-sub/subscriber-2.txt
+      - "{{ step2 }}"
       - 3
-  - name: fs_contains_lines
+      - true
+      - 5.0
+  - name: assert_equal
     dep: true
     args:
-      - tmp-lpss-multi-pub-multi-sub/subscriber-2.txt
+      - "{{ step9 }}"
       - - KDT LPSS multi publisher 1
         - KDT LPSS multi publisher 2
         - KDT LPSS multi publisher 3
-  - name: fs_unique_count
+  - name: lpss_wait_result
     dep: true
     args:
-      - tmp-lpss-multi-pub-multi-sub/subscriber-3.txt
+      - "{{ step3 }}"
       - 3
-  - name: fs_contains_lines
+      - true
+      - 5.0
+  - name: assert_equal
     dep: true
     args:
-      - tmp-lpss-multi-pub-multi-sub/subscriber-3.txt
+      - "{{ step11 }}"
       - - KDT LPSS multi publisher 1
         - KDT LPSS multi publisher 2
         - KDT LPSS multi publisher 3
@@ -123,6 +110,3 @@ steps:
       - msg.strsub
       - SIGTERM
       - kdt_multi_pub_multi_subscriber_3
-  - name: fs_remove_recursive
-    args:
-      - - tmp-lpss-multi-pub-multi-sub

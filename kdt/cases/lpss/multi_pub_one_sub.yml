@@ -3,23 +3,10 @@ info:
   input: 同一主题下的 3 个发布者分别以 20 ms 周期发送不同文本
   expected: 单个订阅者能够找到全部 3 种发布内容
 steps:
-  - name: fs_remove_recursive
-    args:
-      - - tmp-lpss-multi-pub-one-sub
-  - name: fs_create_dir
-    dep: true
-    args:
-      - - tmp-lpss-multi-pub-one-sub
-  - name: lpss_msg_strsub
-    dep: true
+  - name: lpss_msg_strcollect
     args:
       - kdt_multi_pub_subscriber
       - /kdt/pubsub/multi-pub-one-sub
-      - tmp-lpss-multi-pub-one-sub/received.txt
-  - name: logic_wait
-    dep: true
-    args:
-      - 0.2
   - name: lpss_msg_strpub
     dep: true
     args:
@@ -41,23 +28,17 @@ steps:
       - /kdt/pubsub/multi-pub-one-sub
       - KDT LPSS publisher 3
       - 20
-  - name: fs_wait_contains_lines
+  - name: lpss_wait_result
     dep: true
     args:
-      - tmp-lpss-multi-pub-one-sub/received.txt
-      - - KDT LPSS publisher 1
-        - KDT LPSS publisher 2
-        - KDT LPSS publisher 3
-      - 5.0
-  - name: fs_unique_count
-    dep: true
-    args:
-      - tmp-lpss-multi-pub-one-sub/received.txt
+      - '{{ step1 }}'
       - 3
-  - name: fs_contains_lines
+      - true
+      - 5
+  - name: assert_equal
     dep: true
     args:
-      - tmp-lpss-multi-pub-one-sub/received.txt
+      - '{{ step5 }}'
       - - KDT LPSS publisher 1
         - KDT LPSS publisher 2
         - KDT LPSS publisher 3
@@ -81,6 +62,3 @@ steps:
       - msg.strsub
       - SIGTERM
       - kdt_multi_pub_subscriber
-  - name: fs_remove_recursive
-    args:
-      - - tmp-lpss-multi-pub-one-sub

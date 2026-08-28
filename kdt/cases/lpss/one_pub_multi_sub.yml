@@ -3,35 +3,20 @@ info:
   input: 单个发布者以 20 ms 周期发送固定文本，3 个订阅者同时接收
   expected: 3 个订阅者均能收到发布内容
 steps:
-  - name: fs_remove_recursive
-    args:
-      - - tmp-lpss-one-pub-multi-sub
-  - name: fs_create_dir
-    dep: true
-    args:
-      - - tmp-lpss-one-pub-multi-sub
-  - name: lpss_msg_strsub
-    dep: true
+  - name: lpss_msg_strcollect
     args:
       - kdt_one_pub_subscriber_1
       - /kdt/pubsub/one-pub-multi-sub
-      - tmp-lpss-one-pub-multi-sub/subscriber-1.txt
-  - name: lpss_msg_strsub
+  - name: lpss_msg_strcollect
     dep: true
     args:
       - kdt_one_pub_subscriber_2
       - /kdt/pubsub/one-pub-multi-sub
-      - tmp-lpss-one-pub-multi-sub/subscriber-2.txt
-  - name: lpss_msg_strsub
+  - name: lpss_msg_strcollect
     dep: true
     args:
       - kdt_one_pub_subscriber_3
       - /kdt/pubsub/one-pub-multi-sub
-      - tmp-lpss-one-pub-multi-sub/subscriber-3.txt
-  - name: logic_wait
-    dep: true
-    args:
-      - 0.2
   - name: lpss_msg_strpub
     dep: true
     args:
@@ -39,25 +24,42 @@ steps:
       - /kdt/pubsub/one-pub-multi-sub
       - KDT LPSS one publisher to multiple subscribers
       - 20
-  - name: logic_wait
+  - name: lpss_wait_result
     dep: true
     args:
-      - 0.5
-  - name: fs_contains_lines
+      - "{{ step1 }}"
+      - 1
+      - false
+      - 5.0
+  - name: assert_equal
     dep: true
     args:
-      - tmp-lpss-one-pub-multi-sub/subscriber-1.txt
-      - - KDT LPSS one publisher to multiple subscribers
-  - name: fs_contains_lines
+      - "{{ step5 }}"
+      - KDT LPSS one publisher to multiple subscribers
+  - name: lpss_wait_result
     dep: true
     args:
-      - tmp-lpss-one-pub-multi-sub/subscriber-2.txt
-      - - KDT LPSS one publisher to multiple subscribers
-  - name: fs_contains_lines
+      - "{{ step2 }}"
+      - 1
+      - false
+      - 5.0
+  - name: assert_equal
     dep: true
     args:
-      - tmp-lpss-one-pub-multi-sub/subscriber-3.txt
-      - - KDT LPSS one publisher to multiple subscribers
+      - "{{ step7 }}"
+      - KDT LPSS one publisher to multiple subscribers
+  - name: lpss_wait_result
+    dep: true
+    args:
+      - "{{ step3 }}"
+      - 1
+      - false
+      - 5.0
+  - name: assert_equal
+    dep: true
+    args:
+      - "{{ step9 }}"
+      - KDT LPSS one publisher to multiple subscribers
   - name: lpss_stop
     args:
       - msg.strpub
@@ -78,6 +80,3 @@ steps:
       - msg.strsub
       - SIGTERM
       - kdt_one_pub_subscriber_3
-  - name: fs_remove_recursive
-    args:
-      - - tmp-lpss-one-pub-multi-sub

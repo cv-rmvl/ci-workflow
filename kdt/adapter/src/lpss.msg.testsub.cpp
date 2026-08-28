@@ -1,3 +1,4 @@
+#include <cstdio>
 #include <fstream>
 
 #include <fmt/format.h>
@@ -21,6 +22,8 @@ public:
             const auto valid = kdt::valid_test_types(data);
             _stream << (valid ? "pass" : "fail") << std::endl;
             fmt::println("TestTypes message {} -> {}", valid ? "passed" : "failed", output);
+            fmt::println("KDT_RESULT: {}", valid ? "pass" : "fail");
+            std::fflush(stdout);
         });
     }
 
@@ -60,6 +63,8 @@ int main(int argc, char *argv[]) {
             const auto valid = kdt::valid_test_types(data);
             stream << (valid ? "pass" : "fail") << std::endl;
             fmt::println("TestTypes message {} -> {}", valid ? "passed" : "failed", output);
+            fmt::println("KDT_RESULT: {}", valid ? "pass" : "fail");
+            std::fflush(stdout);
         });
     if (subscriber.invalid()) {
         fmt::println(stderr, "Failed to create TestTypes subscriber: {}", parser.get("topic"));

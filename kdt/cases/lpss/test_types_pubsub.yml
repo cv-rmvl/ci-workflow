@@ -3,43 +3,27 @@ info:
   input: 包含基础类型、字符串和序列字段的 TestTypes 消息
   expected: 消息经发布、序列化、传输和反序列化后全部字段保持一致
 steps:
-  - name: fs_remove_recursive
-    args:
-      - - tmp-lpss-test-types-pubsub
-  - name: fs_create_dir
-    dep: true
-    args:
-      - - tmp-lpss-test-types-pubsub
-  - name: lpss_msg_testsub
-    dep: true
+  - name: lpss_msg_testcheck
     args:
       - kdt_test_types_subscriber
       - /kdt/test_types/pubsub
-      - tmp-lpss-test-types-pubsub/received.txt
-  - name: logic_wait
-    dep: true
-    args:
-      - 0.5
   - name: lpss_msg_testpub
     dep: true
     args:
       - kdt_test_types_publisher
       - /kdt/test_types/pubsub
       - 20
-  - name: logic_wait
+  - name: lpss_wait_result
     dep: true
     args:
-      - 0.5
-  - name: fs_slice
-    dep: true
-    args:
-      - tmp-lpss-test-types-pubsub/received.txt
+      - "{{ step1 }}"
       - 1
-      - tmp-lpss-test-types-pubsub/first-result.txt
+      - false
+      - 5.0
   - name: assert_equal
     dep: true
     args:
-      - "{{ step7 }}"
+      - "{{ step3 }}"
       - pass
   - name: lpss_stop
     args:
@@ -51,6 +35,3 @@ steps:
       - msg.testsub
       - SIGTERM
       - kdt_test_types_subscriber
-  - name: fs_remove_recursive
-    args:
-      - - tmp-lpss-test-types-pubsub

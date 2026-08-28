@@ -3,23 +3,10 @@ info:
   input: 订阅端先启动，随后发布端以 20 ms 周期发送固定文本
   expected: 订阅端能够发现发布端并连续收到相同文本
 steps:
-  - name: fs_remove_recursive
-    args:
-      - - tmp-lpss-basic-pubsub-sub-first
-  - name: fs_create_dir
-    dep: true
-    args:
-      - - tmp-lpss-basic-pubsub-sub-first
-  - name: lpss_msg_strsub
-    dep: true
+  - name: lpss_msg_strcollect
     args:
       - kdt_basic_sub_first_subscriber
       - /kdt/basic/pubsub/sub-first
-      - tmp-lpss-basic-pubsub-sub-first/received.txt
-  - name: logic_wait
-    dep: true
-    args:
-      - 0.2
   - name: lpss_msg_strpub
     dep: true
     args:
@@ -27,32 +14,19 @@ steps:
       - /kdt/basic/pubsub/sub-first
       - KDT LPSS subscriber first
       - 20
-  - name: logic_wait
+  - name: lpss_wait_result
     dep: true
     args:
-      - 0.2
-  - name: fs_slice
-    dep: true
-    args:
-      - tmp-lpss-basic-pubsub-sub-first/received.txt
-      - 1
-      - tmp-lpss-basic-pubsub-sub-first/line-1.txt
-  - name: assert_equal
-    dep: true
-    args:
-      - '{{ step7 }}'
-      - KDT LPSS subscriber first
-  - name: fs_slice
-    dep: true
-    args:
-      - tmp-lpss-basic-pubsub-sub-first/received.txt
+      - "{{ step1 }}"
       - 2
-      - tmp-lpss-basic-pubsub-sub-first/line-2.txt
+      - false
+      - 5.0
   - name: assert_equal
     dep: true
     args:
-      - '{{ step9 }}'
-      - KDT LPSS subscriber first
+      - "{{ step3 }}"
+      - - KDT LPSS subscriber first
+        - KDT LPSS subscriber first
   - name: lpss_stop
     args:
       - msg.strpub
@@ -63,6 +37,3 @@ steps:
       - msg.strsub
       - SIGTERM
       - kdt_basic_sub_first_subscriber
-  - name: fs_remove_recursive
-    args:
-      - - tmp-lpss-basic-pubsub-sub-first

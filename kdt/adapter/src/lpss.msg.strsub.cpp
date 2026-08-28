@@ -19,6 +19,7 @@ public:
         _sub = this->createSubscriber<msg::String>(topic, [this, outfile](const msg::String &msg) {
             _ofs << msg.data << std::endl;
             fmt::println("Received message: {} -> {}", msg.data, outfile);
+            fmt::println("KDT_RESULT: {}", msg.data);
             std::fflush(stdout);
         });
     }
@@ -55,6 +56,7 @@ int main(int argc, char *argv[]) {
         topic, [&stream, outfile](const msg::String &msg) {
             stream << msg.data << std::endl;
             fmt::println("Received message: {} -> {}", msg.data, outfile);
+            fmt::println("KDT_RESULT: {}", msg.data);
             std::fflush(stdout);
         });
     if (subscriber.invalid()) {

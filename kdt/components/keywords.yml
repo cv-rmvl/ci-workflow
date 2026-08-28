@@ -245,7 +245,7 @@ serial_stop:
   info: 终止当前 KDT 测试进程注册的全部串口后台操作，不影响其他进程启动的串口程序
   component: func.io.serial.stop
 lpss_msg_strpub:
-  name: 注册简单消息发布任务：std/String
+  name: 注册 std/String 消息发布任务
   info: 组件将在后台按指定周期持续发布内容不变的字符串消息，直到调用终止 LPSS 后台节点组件。该步骤完成仅表示后台发布任务已注册
   component: func.lpss.msg.strpub
   args:
@@ -258,7 +258,7 @@ lpss_msg_strpub:
     - name: 发布周期，单位为毫秒
       type: int
 lpss_msg_strsub:
-  name: 注册简单消息订阅任务：std/String
+  name: 注册 std/String 订阅任务：文件输出
   info: 组件将在后台持续订阅字符串消息并逐行写入指定文件，直到调用终止 LPSS 后台节点组件。该步骤完成仅表示后台订阅任务已注册
   component: func.lpss.msg.strsub
   args:
@@ -268,8 +268,17 @@ lpss_msg_strsub:
       type: str
     - name: 输出文件路径
       type: str
+lpss_msg_strcollect:
+  name: 注册 std/String 订阅任务：stepres
+  info: 组件将在后台持续订阅字符串消息，接收结果保存在后台任务中，可将本步骤返回值传给“等待 LPSS 后台任务结果”组件，无需写入临时文件
+  component: func.lpss.msg.strcollect
+  args:
+    - name: 订阅节点名称
+      type: str
+    - name: 订阅主题
+      type: str
 lpss_msg_testpub:
-  name: 注册复合消息发布任务：TestTypes
+  name: 注册 TestTypes 消息发布任务
   info: 发布 KDT 自定义 TestTypes 消息，覆盖布尔、字符、各宽度整数、浮点、字符串、定长数组和变长数组；发布前会显式验证 serialize/deserialize 往返结果
   component: func.lpss.msg.testpub
   args:
@@ -280,7 +289,7 @@ lpss_msg_testpub:
     - name: 发布周期，单位为毫秒
       type: int
 lpss_msg_testsub:
-  name: 注册复合消息订阅任务：TestTypes
+  name: 注册 TestTypes 消息订阅任务：文件输出
   info: 订阅 KDT 自定义 TestTypes 消息，逐字段验证 LPSS 反序列化后的内容，并将 pass 或 fail 逐行写入指定文件
   component: func.lpss.msg.testsub
   args:
@@ -290,6 +299,28 @@ lpss_msg_testsub:
       type: str
     - name: 校验结果输出文件路径
       type: str
+lpss_msg_testcheck:
+  name: 注册 TestTypes 消息订阅任务：stepres
+  info: 组件在后台订阅 KDT 自定义 TestTypes 消息并逐字段校验，校验结果保存在后台任务中，可将本步骤返回值传给“等待 LPSS 后台任务结果”组件
+  component: func.lpss.msg.testcheck
+  args:
+    - name: 订阅节点名称
+      type: str
+    - name: 订阅主题
+      type: str
+lpss_wait_result:
+  name: 等待 LPSS 后台任务结果
+  info: 等待订阅任务产生指定数量的结果，仅统计不同结果时会去重并排序。一个结果直接返回字符串，多个结果返回字符串列表，超时或后台任务提前退出时该步骤失败
+  component: func.lpss.base.result
+  args:
+    - name: LPSS 后台任务
+      type: Any
+    - name: 结果数量
+      type: int
+    - name: 仅统计不同结果
+      type: bool
+    - name: 最长等待时间，单位为秒
+      type: float
 lpss_srv_strservice:
   name: 注册简单类型服务端：std/SetBool
   info: '组件将在后台注册 std/SetBool 服务。请求为 true 时返回 success: true 和 message: enabled，请求为 false 时返回 success: true 和 message: disabled，直到调用终止 LPSS 后台节点组件。该功能需要 C++20，C++17 环境会自动跳过'

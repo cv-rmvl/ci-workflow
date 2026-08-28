@@ -6,10 +6,11 @@ import re
 import signal
 import subprocess
 import time
+from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from threading import Lock, Thread
-from typing import List, Optional, Tuple
+from threading import Condition, Lock, Thread
+from typing import List, Optional
 
 from framework import logger
 from framework.exceptions import KeywordSkipped
@@ -38,12 +39,26 @@ class LpssSignal(Enum):
     SIGKILL = "SIGKILL"
 
 
-_BACKGROUND_PROCESSES: List[Tuple[LpssAdapter, str, subprocess.Popen]] = []
+@dataclass(eq=False)
+class LpssTask:
+    """由 KDT 启动并可通过步骤结果引用的 LPSS 后台任务。"""
+
+    adapter: LpssAdapter
+    node_name: str
+    process: subprocess.Popen
+    collect_results: bool = False
+    results: List[str] = field(default_factory=list)
+    finished: bool = False
+    condition: Condition = field(default_factory=Condition, repr=False)
+
+
+_BACKGROUND_PROCESSES: List[LpssTask] = []
 _BACKGROUND_PROCESSES_LOCK = Lock()
 _STOP_REQUESTED = set()
 _SHUTTING_DOWN = False
 _ANSI_ESCAPE = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
 _SKIPPED_EXIT_CODE = 77
+_RESULT_PREFIX = "KDT_RESULT: "
 
 
 def _adapter(adapter: LpssAdapter) -> Path:
@@ -60,41 +75,55 @@ def _adapter(adapter: LpssAdapter) -> Path:
     return executable
 
 
-def _stream_adapter_output(adapter: LpssAdapter, stream):
+def _stream_adapter_output(task: LpssTask, stream):
     """将后台 Adapter 的输出实时转发到 KDT 日志。"""
     if stream is None:
         return
     try:
         for line in stream:
-            logger.info(
-                _ANSI_ESCAPE.sub("", line.rstrip("\r\n")),
-                source=adapter.value,
-            )
+            message = _ANSI_ESCAPE.sub("", line.rstrip("\r\n"))
+            if message.startswith(_RESULT_PREFIX):
+                if task.collect_results:
+                    result = message[len(_RESULT_PREFIX):]
+                    with task.condition:
+                        task.results.append(result)
+                        task.condition.notify_all()
+                continue
+            logger.info(message, source=task.adapter.value)
     finally:
         stream.close()
 
 
-def _monitor_adapter(adapter: LpssAdapter, process: subprocess.Popen):
+def _monitor_adapter(task: LpssTask):
     """转发后台 Adapter 输出，等待进程结束并维护进程表。"""
-    _stream_adapter_output(adapter, process.stdout)
+    process = task.process
+    _stream_adapter_output(task, process.stdout)
     process.wait()
+
+    with task.condition:
+        task.finished = True
+        task.condition.notify_all()
 
     with _BACKGROUND_PROCESSES_LOCK:
         stopped = process in _STOP_REQUESTED
         _STOP_REQUESTED.discard(process)
         _BACKGROUND_PROCESSES[:] = [
-            item for item in _BACKGROUND_PROCESSES if item[2] is not process
+            item for item in _BACKGROUND_PROCESSES if item.process is not process
         ]
 
     if not _SHUTTING_DOWN and process.returncode != 0 and not stopped:
         logger.error(
             f"Process exited with code {process.returncode}",
-            source=adapter.value,
+            source=task.adapter.value,
         )
 
 
-def _start(adapter: LpssAdapter, arguments: List[str]):
-    """启动并跟踪一个长生命周期 LPSS Adapter。"""
+def _start(
+    adapter: LpssAdapter,
+    arguments: List[str],
+    collect_results: bool = False,
+):
+    """启动并跟踪一个长生命周期 LPSS Adapter，返回任务句柄。"""
     if not arguments:
         raise ValueError("LPSS Adapter arguments must contain a node name")
 
@@ -115,10 +144,53 @@ def _start(adapter: LpssAdapter, arguments: List[str]):
         bufsize=1,
         **process_options,
     )
+    task = LpssTask(adapter, node_name, process, collect_results=collect_results)
     with _BACKGROUND_PROCESSES_LOCK:
-        _BACKGROUND_PROCESSES.append((adapter, node_name, process))
+        _BACKGROUND_PROCESSES.append(task)
 
-    Thread(target=_monitor_adapter, args=(adapter, process), daemon=True).start()
+    Thread(target=_monitor_adapter, args=(task,), daemon=True).start()
+    return task
+
+
+def result(task: LpssTask, count: int, unique: bool, timeout: float):
+    """
+    等待 LPSS 后台任务产生指定数量的结果并返回。
+
+    ``unique`` 为 ``True`` 时按不同结果的数量等待并返回排序后的列表，
+    否则按接收顺序计数。仅等待一个结果时直接返回字符串。
+
+    :param task: LPSS 后台任务句柄
+    :param count: 等待的结果数量
+    :param unique: 是否按不同结果计数
+    :param timeout: 最长等待时间，单位为秒
+    """
+    if not isinstance(task, LpssTask):
+        raise TypeError("task must be an LPSS background task result")
+    if count <= 0:
+        raise ValueError("count must be greater than zero")
+    if timeout <= 0:
+        raise ValueError("timeout must be greater than zero")
+
+    deadline = time.monotonic() + timeout
+    with task.condition:
+        while True:
+            values = list(dict.fromkeys(task.results)) if unique else list(task.results)
+            if len(values) >= count:
+                selected = sorted(values) if unique else values[:count]
+                return selected[0] if count == 1 else selected
+            if task.finished:
+                raise RuntimeError(
+                    f"{task.adapter.value} node {task.node_name!r} exited after "
+                    f"producing {len(values)} of {count} required result(s)"
+                )
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError(
+                    f"Timed out after {timeout:g}s waiting for {count} "
+                    f"result(s) from {task.adapter.value} node {task.node_name!r}; "
+                    f"received {values!r}"
+                )
+            task.condition.wait(remaining)
 
 
 def _run(adapter: LpssAdapter, arguments: List[str], expected_exit_code: int = 0, timeout: Optional[float] = None):
@@ -236,11 +308,12 @@ def stop(adapter: LpssAdapter, signal_type: LpssSignal, node_name: str):
         )
 
     with _BACKGROUND_PROCESSES_LOCK:
-        processes = [
-            process
-            for registered_adapter, registered_name, process in _BACKGROUND_PROCESSES
-            if registered_adapter is adapter and registered_name == node_name
+        tasks = [
+            task
+            for task in _BACKGROUND_PROCESSES
+            if task.adapter is adapter and task.node_name == node_name
         ]
+        processes = [task.process for task in tasks]
         _STOP_REQUESTED.update(processes)
 
     if not processes:
@@ -290,7 +363,7 @@ def _cleanup_background_processes():
     global _SHUTTING_DOWN
     _SHUTTING_DOWN = True
     with _BACKGROUND_PROCESSES_LOCK:
-        processes = [process for _, _, process in _BACKGROUND_PROCESSES]
+        processes = [task.process for task in _BACKGROUND_PROCESSES]
         _STOP_REQUESTED.update(processes)
     for process in processes:
         _request_process_stop(process)
