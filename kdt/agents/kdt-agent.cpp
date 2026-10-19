@@ -29,6 +29,7 @@ namespace kdt {
 
 struct Config {
     std::uint16_t port{8765};
+    bool with_ai{};
 };
 
 struct ExecutionJob {
@@ -112,6 +113,112 @@ fs::path path_from_utf8(std::string_view value) {
 bool valid_segment(std::string_view value) {
     static const std::regex pattern(R"(^[A-Za-z0-9_-]+$)");
     return std::regex_match(value.begin(), value.end(), pattern);
+}
+
+bool valid_python_identifier(std::string_view value) {
+    static const std::regex pattern(R"(^[A-Za-z_][A-Za-z0-9_]*$)");
+    return std::regex_match(value.begin(), value.end(), pattern);
+}
+
+struct ComponentTarget {
+    fs::path file;
+    std::string function;
+};
+
+ComponentTarget component_target(const fs::path &components_root,
+                                 std::string_view component) {
+    std::vector<std::string> segments;
+    std::size_t begin{};
+    while (begin < component.size()) {
+        const auto end = component.find('.', begin);
+        auto segment = component.substr(
+            begin, end == std::string_view::npos ? component.size() - begin
+                                                 : end - begin);
+        if (!valid_python_identifier(segment))
+            throw std::invalid_argument("Invalid Python component");
+        segments.emplace_back(segment);
+        if (end == std::string_view::npos)
+            break;
+        begin = end + 1;
+    }
+    if (segments.size() < 2 || component.back() == '.')
+        throw std::invalid_argument("Invalid Python component");
+
+    auto file = components_root;
+    for (std::size_t i = 0; i + 2 < segments.size(); ++i)
+        file /= segments[i];
+    file /= segments[segments.size() - 2] + ".py";
+    return {std::move(file), std::move(segments.back())};
+}
+
+std::string_view source_line(std::string_view source, std::size_t begin,
+                             std::size_t end) {
+    if (end > begin && source[end - 1] == '\n')
+        --end;
+    if (end > begin && source[end - 1] == '\r')
+        --end;
+    return source.substr(begin, end - begin);
+}
+
+bool is_function_header(std::string_view line, std::string_view function) {
+    constexpr std::string_view async_prefix = "async def ";
+    constexpr std::string_view def_prefix = "def ";
+    if (line.starts_with(async_prefix))
+        line.remove_prefix(async_prefix.size());
+    else if (line.starts_with(def_prefix))
+        line.remove_prefix(def_prefix.size());
+    else
+        return false;
+
+    if (!line.starts_with(function))
+        return false;
+    line.remove_prefix(function.size());
+    while (!line.empty() && (line.front() == ' ' || line.front() == '\t'))
+        line.remove_prefix(1);
+    return !line.empty() && line.front() == '(';
+}
+
+std::optional<std::pair<std::size_t, std::size_t>>
+top_level_function_range(std::string_view source, std::string_view function) {
+    std::vector<std::size_t> starts{0};
+    for (std::size_t i = 0; i < source.size(); ++i)
+        if (source[i] == '\n' && i + 1 < source.size())
+            starts.push_back(i + 1);
+
+    for (std::size_t index = 0; index < starts.size(); ++index) {
+        const auto begin = starts[index];
+        const auto end = index + 1 < starts.size() ? starts[index + 1] : source.size();
+        if (!is_function_header(source_line(source, begin, end), function))
+            continue;
+
+        auto block_begin = begin;
+        auto decorator_index = index;
+        while (decorator_index > 0) {
+            const auto previous_begin = starts[decorator_index - 1];
+            const auto previous_end = starts[decorator_index];
+            const auto previous = source_line(source, previous_begin, previous_end);
+            if (!previous.starts_with('@'))
+                break;
+            block_begin = previous_begin;
+            --decorator_index;
+        }
+
+        auto block_end = source.size();
+        for (std::size_t next = index + 1; next < starts.size(); ++next) {
+            const auto next_begin = starts[next];
+            const auto next_end = next + 1 < starts.size() ? starts[next + 1]
+                                                           : source.size();
+            const auto line = source_line(source, next_begin, next_end);
+            if (line.empty())
+                continue;
+            if (line.front() != ' ' && line.front() != '\t') {
+                block_end = next_begin;
+                break;
+            }
+        }
+        return std::pair{block_begin, block_end};
+    }
+    return std::nullopt;
 }
 
 bool request_header_is(const Request &request, std::string_view name, std::string_view expected) {
@@ -387,12 +494,15 @@ Config parse_args(int argc, char **argv) {
         std::string_view arg = argv[i];
         if (arg == "--port" && i + 1 < argc)
             config.port = static_cast<std::uint16_t>(std::stoi(argv[++i]));
+        else if (arg == "--with-ai")
+            config.with_ai = true;
         else if (arg == "--help" || arg == "-h" || arg == "-?") {
-            fmt::println("\033[1mUsage:\033[0m\n   \033[36mkdt-web\033[0m "
-                         "\033[90m[--port <port>] [--help | -h | -?]\033[0m\n");
+            fmt::println("\033[1mUsage:\033[0m\n   \033[36mrmvl_kdt_agent\033[0m "
+                         "\033[90m[--port <port>] [--with-ai] [--help | -h | -?]\033[0m\n");
             fmt::println("\033[1mArguments:\033[0m");
             fmt::println("   \033[36m--port\033[0m           \033[90mPort number to "
                          "listen on (default: 8765)\033[0m");
+            fmt::println("   \033[36m--with-ai\033[0m        \033[90mEnable local Codex assistant\033[0m");
             fmt::println(
                 "   \033[36m--help\033[0m, \033[36m-h\033[0m, \033[36m-?\033[0m   "
                 "\033[90mShow this help message and exit\033[0m");
@@ -410,6 +520,8 @@ void absent(const Request &, Response &res) {
 }
 
 } // namespace kdt
+
+#include "ai.hpp"
 
 int main(int argc, char **argv) try {
 #ifndef _WIN32
@@ -429,6 +541,8 @@ int main(int argc, char **argv) try {
     rm::async::Webapp app(context);
     rm::async::HttpServer server(app);
     kdt::ExecutionJob execution;
+    kdt::AiJob ai;
+    kdt::register_ai(app, context, root, ai, execution, config.with_ai);
 
     app.get("/", [](const Request &, Response &res) {
         res.send(
@@ -448,6 +562,55 @@ int main(int argc, char **argv) try {
                  kdt::write_text(components / "keywords.yml", req.body);
                  res.json({{"ok", true}});
              }));
+    app.get("/api/components/:component", kdt::guarded([&](const Request &req, Response &res) {
+                const auto target = kdt::component_target(
+                    components, req.params.at("component"));
+                if (!fs::is_regular_file(target.file))
+                    return kdt::json_error(res, 404, "Python component file not found");
+                res.json({
+                    {"content", kdt::read_text(target.file)},
+                    {"path", fs::relative(target.file, components).generic_string()},
+                    {"function", target.function},
+                });
+            }));
+    app.post("/api/components/:component", kdt::guarded([&](const Request &req, Response &res) {
+                 const auto target = kdt::component_target(
+                     components, req.params.at("component"));
+                 if (!kdt::top_level_function_range(req.body, target.function))
+                     throw std::invalid_argument(
+                         "Saved source must contain the bound top-level function");
+                 kdt::write_text(target.file, req.body);
+                 res.json({{"ok", true}});
+             }));
+    app.post("/api/components/:component/append", kdt::guarded([&](const Request &req, Response &res) {
+                 const auto target = kdt::component_target(
+                     components, req.params.at("component"));
+                 auto source = fs::exists(target.file) ? kdt::read_text(target.file) : "";
+                 if (kdt::top_level_function_range(source, target.function))
+                     return kdt::json_error(res, 409, "Python function already exists");
+                 if (!kdt::top_level_function_range(req.body, target.function))
+                     throw std::invalid_argument("Missing bound top-level function in template");
+                 kdt::write_text(target.file, source + "\n\n" + req.body);
+                 res.json({{"ok", true}});
+             }));
+    app.del("/api/components/:component", kdt::guarded([&](const Request &req, Response &res) {
+                const auto target = kdt::component_target(
+                    components, req.params.at("component"));
+                if (!fs::is_regular_file(target.file))
+                    return kdt::json_error(res, 404, "Python component file not found");
+
+                auto source = kdt::read_text(target.file);
+                const auto range = kdt::top_level_function_range(
+                    source, target.function);
+                if (!range)
+                    return kdt::json_error(res, 404, "Bound Python function not found");
+                source.erase(range->first, range->second - range->first);
+                if (source.find_first_not_of(" \t\r\n") == std::string::npos)
+                    fs::remove(target.file);
+                else
+                    kdt::write_text(target.file, source);
+                res.json({{"ok", true}, {"removed", target.function}});
+            }));
     app.get("/api/cases", kdt::guarded([&](const Request &, Response &res) {
                 res.json(kdt::list_cases(cases));
             }));
@@ -518,8 +681,8 @@ int main(int argc, char **argv) try {
                      }
                  }
                  {
-                     std::scoped_lock lock(execution.mutex);
-                     if (execution.running)
+                     std::scoped_lock lock(execution.mutex, ai.mutex);
+                     if (execution.running || ai.running)
                          return kdt::json_error(res, 409, "A test execution is already running");
                      execution.output.clear();
                      execution.running = true;
@@ -660,8 +823,13 @@ int main(int argc, char **argv) try {
     });
     rm::async::co_spawn(context, &rm::async::HttpServer::spin, &server);
     context.run();
+    {
+        std::scoped_lock lock(ai.mutex);
+        if (ai.running)
+            kdt::write_text(ai.directory / "cancel", "cancel");
+    }
     return 0;
 } catch (const std::exception &error) {
-    fmt::println(stderr, "kdt-web: {}", error.what());
+    fmt::println(stderr, "rmvl_kdt_agent: {}", error.what());
     return 1;
 }
