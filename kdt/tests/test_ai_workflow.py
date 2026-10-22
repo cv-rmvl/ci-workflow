@@ -4,6 +4,7 @@ import contextlib
 import importlib.util
 import io
 import json
+import shutil
 from pathlib import Path
 import tempfile
 import unittest
@@ -26,7 +27,8 @@ class AiWorkflowTest(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
-        self.root = Path(self.temporary.name)
+        self.root = Path(self.temporary.name) / "kdt"
+        self.root.mkdir()
         self.directory = self.root / "tmp/ai"
         self.directory.mkdir(parents=True)
         self.output = io.StringIO()
@@ -36,6 +38,164 @@ class AiWorkflowTest(unittest.TestCase):
 
     def workflow(self, provider=None):
         return ai.Workflow(self.root, {"directory": str(self.directory), "prompt": "KDT"}, provider)
+
+    def test_summary_is_limited_to_forty_words_without_splitting_identifiers(self):
+        text = " ".join(["lpss.tool-C++17" + str(index) for index in range(41)])
+        summary = ai.concise_summary(text)
+        self.assertEqual(len(summary.rstrip("…").split()), 40)
+        self.assertTrue(summary.endswith("lpss.tool-C++1739…"))
+        self.assertEqual(ai.concise_summary("支持 C++17~C++23 的 lpss.tool 六项查询"), "支持 C++17~C++23 的 lpss.tool 六项查询")
+        self.assertEqual(ai.concise_summary("测" * 41), "测" * 40 + "…")
+        self.assertEqual(ai.concise_summary("  任务\n 摘要  "), "任务 摘要")
+
+    def test_questions_are_concise_current_items_not_an_accumulated_history(self):
+        answers = iter([
+            {"category": "consultation", "message": "说明", "questions": [" 待确认路径 ", "待确认路径", " "]},
+            {"category": "consultation", "message": "已解决", "questions": []},
+        ])
+        workflow = self.workflow(lambda: next(answers))
+        workflow.phase = "analysis"
+        workflow.ask()
+        self.assertEqual(workflow.questions, ["待确认路径"])
+        workflow.ask()
+        self.assertEqual(workflow.questions, [])
+
+    def test_optional_conclusion_is_published_on_consultation_completion(self):
+        workflow = self.workflow(lambda: {"category": "consultation", "message": "说明", "conclusion": "  最终结论  "})
+        workflow.run()
+        events = list(map(json.loads, self.output.getvalue().splitlines()))
+        conclusions = [event for event in events if event["type"] == "conclusion"]
+        self.assertEqual(conclusions, [{"type": "conclusion", "text": "最终结论"}])
+        self.assertEqual(events[-1], {"type": "log", "level": "info", "text": "[ai.workflow] completed"})
+
+    def test_empty_conclusion_does_not_publish_placeholder(self):
+        workflow = self.workflow(lambda: {"category": "consultation", "message": "说明", "conclusion": " \n "})
+        workflow.run()
+        self.assertFalse(any(event["type"] == "conclusion" for event in map(json.loads, self.output.getvalue().splitlines())))
+        with self.assertRaises(ValueError):
+            workflow.publish_conclusion({"conclusion": []})
+
+    def test_only_successful_final_review_publishes_development_conclusion(self):
+        workflow = self.workflow()
+        attempts = []
+
+        def provider():
+            attempts.append(workflow.phase)
+            return {"category": "development", "message": "阶段说明", "acceptance_checks": ["新功能"],
+                    "editable_files": [], "files": [], "functional_cases": [],
+                    "conclusion": "最终验证完成" if workflow.phase == "review" else "中间阶段不能作为结论",
+                    "blocking_issues": ["待修复"] if workflow.phase == "review" and attempts.count("review") == 1 else []}
+
+        def validate(_):
+            workflow.dryrun_ok = True
+
+        workflow.provider, workflow.validate = provider, validate
+        workflow.run()
+        conclusions = [event["text"] for event in map(json.loads, self.output.getvalue().splitlines()) if event["type"] == "conclusion"]
+        self.assertEqual(conclusions, ["最终验证完成"])
+
+    def test_nested_codex_error_is_preserved_instead_of_only_exit_code(self):
+        workflow = self.workflow()
+        message = "The selected model is not supported for this login method."
+        raw = {"type": "error", "status": 400, "error": {"type": "invalid_request_error", "message": message}}
+
+        def stream(*args, **kwargs):
+            yield json.dumps(raw)
+            yield json.dumps({"type": "turn.failed", "error": {"message": json.dumps(raw)}})
+            raise ai.ProcessExitError(1)
+
+        with patch.object(ai, "run_stream", side_effect=stream):
+            with self.assertRaises(RuntimeError) as raised:
+                list(workflow.codex_events(["codex"], "KDT"))
+        self.assertEqual(str(raised.exception), message + "\n\nCodex CLI 退出码：1")
+        events = [json.loads(line) for line in self.output.getvalue().splitlines()]
+        self.assertEqual([event["text"] for event in events if event["type"] == "log"], [message])
+
+    def test_codex_error_is_failure_even_when_process_returns_zero(self):
+        workflow = self.workflow()
+        with patch.object(ai, "run_stream", return_value=iter([json.dumps({"type": "error", "message": "rejected"})])):
+            with self.assertRaisesRegex(RuntimeError, "rejected"):
+                list(workflow.codex_events(["codex"], "KDT"))
+
+    def test_public_progress_and_commands_are_forwarded_without_reasoning(self):
+        workflow = self.workflow()
+        workflow.phase = "analysis"
+        command = {"id": "cmd1", "type": "command_execution", "command": "rg test", "status": "in_progress"}
+        events = [
+            {"type": "item.started", "item": command},
+            {"type": "item.updated", "item": {**command, "aggregated_output": "partial"}},
+            {"type": "item.completed", "item": {**command, "aggregated_output": "full output", "exit_code": 0}},
+            {"type": "item.completed", "item": {**command, "aggregated_output": "full output", "exit_code": 0}},
+            {"type": "item.completed", "item": {"id": "msg", "type": "agent_message", "text": "正在核对参数类型"}},
+            {"type": "item.completed", "item": {"id": "hidden", "type": "reasoning", "text": "private reasoning"}},
+            {"type": "item.completed", "item": {"id": "final", "type": "agent_message", "text": json.dumps({"category": "consultation", "message": "阶段完成", "files": []})}},
+        ]
+        with patch.object(ai, "run_stream", return_value=iter(map(json.dumps, events))):
+            list(workflow.codex_events(["codex"], "KDT"))
+        output = [json.loads(line) for line in self.output.getvalue().splitlines()]
+        self.assertEqual([e["text"] for e in output if e["type"] == "log"], ["rg test", "full output"])
+        progress = [e for e in output if e["type"] == "progress"]
+        self.assertEqual(progress[0]["id"], progress[1]["id"])
+        self.assertEqual(progress[0]["status"], "running")
+        self.assertEqual(progress[2]["status"], "completed")
+        self.assertEqual(progress[-1]["text"], "正在核对参数类型")
+        self.assertNotIn("private reasoning", self.output.getvalue())
+        self.assertNotIn("阶段完成", self.output.getvalue())
+        self.assertTrue(any(e["type"] == "activity" for e in output))
+
+    def test_command_dedup_is_by_item_and_call_not_command_text(self):
+        workflow = self.workflow()
+        events = [{"type": "item.completed", "item": {"id": id, "type": "command_execution", "command": "ls", "exit_code": 2}}
+                  for id in ("a", "b")]
+        for _ in range(2):
+            with patch.object(ai, "run_stream", return_value=iter(map(json.dumps, events))):
+                list(workflow.codex_events(["codex"], "KDT"))
+        output = [json.loads(line) for line in self.output.getvalue().splitlines()]
+        progress = [e for e in output if e["type"] == "progress"]
+        self.assertEqual(len({e["id"] for e in progress}), 4)
+        self.assertTrue(all(e["status"] == "failed" for e in progress))
+        self.assertEqual(len([e for e in output if e["type"] == "log"]), 4)
+
+    def test_plan_search_and_mcp_only_forward_safe_fields(self):
+        workflow = self.workflow()
+        items = [
+            {"id": "plan", "type": "todo_list", "items": [{"text": "读取组件", "completed": True}, {"text": "检查用例", "completed": False}]},
+            {"id": "search", "type": "web_search", "action": {"query": "RMVL 文档"}},
+            {"id": "mcp", "type": "mcp_tool_call", "server": "docs", "tool": "search", "arguments": {"secret": "hidden payload"}},
+        ]
+        with patch.object(ai, "run_stream", return_value=iter(json.dumps({"type": "item.updated", "item": item}) for item in items)):
+            list(workflow.codex_events(["codex"], "KDT"))
+        progress = [e for e in map(json.loads, self.output.getvalue().splitlines()) if e["type"] == "progress"]
+        self.assertEqual(progress[0]["steps"][0]["status"], "completed")
+        self.assertEqual(progress[0]["steps"][1]["status"], "pending")
+        self.assertEqual(progress[1]["detail"], "RMVL 文档")
+        self.assertEqual(progress[2]["detail"], "docs / search")
+        self.assertNotIn("hidden payload", self.output.getvalue())
+
+    def test_dryrun_progress_marks_failed_command(self):
+        workflow = self.workflow()
+        workflow.phase = "dryrun"
+        with patch.object(ai, "run_stream", side_effect=ai.ProcessExitError(1)):
+            with self.assertRaises(ai.ProcessExitError):
+                list(workflow.execute(["cmake", "--build", "build"], 10, "构建 Adapter"))
+        progress = [json.loads(line) for line in self.output.getvalue().splitlines()]
+        self.assertEqual([e["status"] for e in progress], ["running", "failed"])
+        self.assertEqual(progress[0]["id"], progress[1]["id"])
+
+    def test_process_exit_without_error_response_still_reports_exit_code(self):
+        workflow = self.workflow()
+        with patch.object(ai, "run_stream", side_effect=ai.ProcessExitError(9)):
+            with self.assertRaises(ai.ProcessExitError) as raised:
+                list(workflow.codex_events(["codex"], "KDT"))
+        self.assertEqual(raised.exception.code, 9)
+
+    def test_runtime_diagnostics_do_not_expose_environment_credentials(self):
+        with patch.object(ai.subprocess, "run") as run, patch.dict(ai.os.environ, {"CODEX_API_KEY": "private-key"}):
+            run.return_value.stdout = "codex-cli 1.2.3\n"
+            runtime = ai.codex_runtime("/tmp/codex", self.root)
+        self.assertEqual(runtime["version"], "codex-cli 1.2.3")
+        self.assertNotIn("private-key", json.dumps(runtime))
+        self.assertEqual(runtime["workspace"], str(self.root))
 
     def test_phase_cannot_skip_boundary(self):
         workflow = self.workflow()
@@ -83,6 +243,9 @@ class AiWorkflowTest(unittest.TestCase):
             self.assertIn(str(root), kwargs["stdin"])
             self.assertIn(".agents/skills", kwargs["stdin"])
             self.assertIn("不要添加 kdt/ 前缀", kwargs["stdin"])
+            self.assertIn("最多40词", kwargs["stdin"])
+            self.assertIn("精简为1至2句话", kwargs["stdin"])
+            self.assertIn("每条一句短句", kwargs["stdin"])
             result = Path(command[command.index("--output-last-message") + 1])
             result.write_text(json.dumps(response), encoding="utf-8")
             return iter(())
@@ -121,6 +284,7 @@ class AiWorkflowTest(unittest.TestCase):
         def provider():
             attempts.append(workflow.phase)
             return {"category": "development", "message": "阶段说明", "editable_files": [],
+                    "acceptance_checks": ["新功能验收"],
                     "files": [], "functional_cases": [], "approved": attempts.count("review") > 1}
         workflow.provider = provider
         def validate(_):
@@ -154,6 +318,335 @@ class AiWorkflowTest(unittest.TestCase):
         workflow.usage = 10 ** 9
         workflow.run()
         self.assertEqual(workflow.phase, "completed")
+
+    def test_session_summary_has_stable_eight_digit_hash_and_isolated_workspace(self):
+        workflow = self.workflow()
+        workflow.set_session_summary("  工具查询功能  验证\n")
+        self.assertEqual(workflow.summary, "工具查询功能 验证")
+        expected = ai.hashlib.sha256((workflow.summary + "\0" + str(self.directory.resolve())).encode()).hexdigest()[:8]
+        self.assertEqual(workflow.session_key, expected)
+        self.assertEqual(workflow.session_dir, self.root.parent / "build" / ("ai_assisstant-" + expected))
+        workflow.acceptance = ["node list", "node info"]
+        workflow.prepare_session()
+        self.assertIn("node list", (workflow.session_dir / "SESSION.md").read_text())
+        other = ai.Workflow(self.root, {"directory": str(self.directory / "other"), "prompt": "KDT"})
+        other.set_session_summary(workflow.summary)
+        self.assertNotEqual(other.session_key, workflow.session_key)
+        with self.assertRaises(ValueError):
+            workflow.set_session_summary("不能更换已有会话")
+
+    def test_session_does_not_reuse_existing_directory_on_hash_collision(self):
+        workflow = self.workflow()
+        workflow.session_dir.mkdir(parents=True)
+        with self.assertRaises(FileExistsError):
+            workflow.prepare_session()
+
+    def test_scratch_rejects_escape_and_consultation_writes(self):
+        workflow = self.workflow()
+        for relative in ("../outside.py", "/tmp/outside.py", "..\\outside.py", "."):
+            with self.assertRaises(ValueError):
+                workflow.scratch_target(relative)
+        workflow.category = "consultation"
+        with self.assertRaises(ValueError):
+            workflow.apply_scratch([{"path": "check.py", "content": "pass"}])
+
+    def test_scratch_metadata_and_tmp_do_not_follow_external_symlinks(self):
+        workflow = self.workflow()
+        workflow.prepare_session()
+        outside = self.root / "outside"
+        outside.mkdir()
+        (outside / "target").write_text("user content", encoding="utf-8")
+        try:
+            (workflow.session_dir / "SESSION.md").unlink()
+            (workflow.session_dir / "SESSION.md").symlink_to(outside / "target")
+        except OSError:
+            self.skipTest("环境不支持创建符号链接")
+        with self.assertRaises(ValueError):
+            workflow.prepare_session()
+        self.assertEqual((outside / "target").read_text(), "user content")
+        with self.assertRaises(ValueError):
+            workflow.session_permissions()
+
+    def test_coding_grants_only_current_session_write_permission(self):
+        workflow = self.workflow()
+        workflow.category, workflow.phase = "development", "coding"
+
+        def stream(command, cwd, cancel, **kwargs):
+            setting = next(value for value in command if value.startswith("permissions.kdt_readonly_network.filesystem="))
+            self.assertEqual(setting, 'permissions.kdt_readonly_network.filesystem={' + json.dumps(str(workflow.session_dir), ensure_ascii=False) + '= "write"}')
+            self.assertEqual(kwargs["env"]["TMPDIR"], str(workflow.session_dir / "tmp"))
+            self.assertIn("构建并执行验证程序", kwargs["stdin"])
+            Path(command[command.index("--output-last-message") + 1]).write_text('{}', encoding="utf-8")
+            return iter(())
+
+        with patch.object(ai.shutil, "which", return_value="codex"), patch.object(ai, "codex_runtime", return_value={}), \
+                patch.object(ai, "run_stream", side_effect=stream):
+            workflow.codex()
+        with patch.object(ai.shutil, "which", return_value="codex"):
+            command = workflow.session_command(["python", "check.py"])
+        self.assertEqual(command[:2], ["codex", "sandbox"])
+        self.assertEqual(command[command.index("--") + 1:], ["python", "check.py"])
+        self.assertNotIn("danger-full-access", " ".join(command))
+
+    def test_review_advice_is_not_a_blocker_but_real_issues_are(self):
+        workflow = self.workflow()
+        self.assertTrue(workflow.review_passed({"approved": False, "blocking_issues": [], "questions": ["建议补文档"]}))
+        self.assertFalse(workflow.review_passed({"approved": True, "blocking_issues": ["新功能返回错误结果"]}))
+        with self.assertRaises(ValueError):
+            workflow.review_passed({"blocking_issues": "不是列表"})
+
+    def test_development_requires_new_feature_acceptance_items(self):
+        workflow = self.workflow(lambda: {"category": "development", "message": "分析", "acceptance_checks": []})
+        with self.assertRaisesRegex(ValueError, "验收项"):
+            workflow.run()
+
+    def regression_result(self, command, timeout, label, **kwargs):
+        if label == "运行回归测试":
+            yield 'KDT_AI_TEST_RESULT:{"total":1,"passed":1,"failed":0,"skipped":0}'
+        else:
+            yield "真实退出结果由执行层测试覆盖，此处只测试调度分类"
+
+    def test_existing_cases_and_description_only_changes_are_regressions(self):
+        case = self.root / "cases/lpss/old.yml"
+        case.parent.mkdir(parents=True)
+        case.write_text('info: {name: old}\nsteps: [{name: assert_true, args: [true]}]\n', encoding="utf-8")
+        workflow = self.workflow()
+        case.write_text('info: {name: renamed}\nsteps: [{name: assert_true, args: [true]}]\n', encoding="utf-8")
+        workflow.acceptance = ["新查询功能"]
+        workflow.functional_checks = [{"name": "新查询功能", "case": "lpss.old"}]
+        with patch.object(workflow, "execute", side_effect=self.regression_result):
+            result = workflow.validate([])
+        self.assertEqual(result["regression"]["passed"], 2)
+        self.assertEqual(result["functional"]["passed"], 0)
+        self.assertEqual(result["missingAcceptance"], ["新查询功能"])
+        self.assertFalse(workflow.dryrun_ok)
+
+    def test_modified_case_steps_are_functional_but_old_case_is_regression(self):
+        case = self.root / "cases/feature.yml"
+        case.parent.mkdir()
+        case.write_text('info: feature\nsteps: []\n', encoding="utf-8")
+        workflow = self.workflow()
+        case.write_text('info: feature\nsteps: [{name: assert_true, args: [true]}]\n', encoding="utf-8")
+        workflow.acceptance = ["本次功能"]
+        workflow.functional_checks = [{"name": "本次功能", "case": "feature"}]
+        with patch.object(workflow, "execute", side_effect=self.regression_result):
+            result = workflow.validate([])
+        self.assertEqual(result["functional"]["passed"], 1)
+        self.assertTrue(workflow.dryrun_ok)
+
+    def test_regression_crash_after_pass_marker_is_still_a_failure(self):
+        workflow = self.workflow()
+
+        def execute(command, timeout, label, **kwargs):
+            yield from self.regression_result(command, timeout, label, **kwargs)
+            raise ai.ProcessExitError(9)
+
+        with patch.object(workflow, "execute", side_effect=execute):
+            result = workflow.validate([])
+        self.assertEqual(result["regression"], {"passed": 0, "failed": 1, "skipped": 0, "total": 1})
+        self.assertFalse(workflow.dryrun_ok)
+
+    def test_six_new_feature_checks_have_separate_evidence_and_missing_is_failure(self):
+        workflow = self.workflow()
+        workflow.category = "development"
+        workflow.acceptance = [group + " " + action for group in ("node", "topic", "service") for action in ("list", "info")]
+        workflow.prepare_session()
+        workflow.apply_scratch([{"path": "verify.yml", "content": "info: 六项接口验证\nsteps: [{name: assert_true, args: [true]}]\n"}])
+        workflow.functional_checks = [{"name": name, "yaml": "verify.yml"} for name in workflow.acceptance]
+        with patch.object(workflow, "execute", side_effect=self.regression_result), patch.object(ai.shutil, "which", return_value="codex"):
+            result = workflow.validate([])
+            self.assertTrue(workflow.dryrun_ok)
+            self.assertEqual(result["functional"], {"total": 6, "passed": 6, "failed": 0, "skipped": 0})
+            self.assertEqual([check["name"] for check in result["checks"]], workflow.acceptance)
+            workflow.functional_checks.pop()
+            result = workflow.validate([])
+        self.assertFalse(workflow.dryrun_ok)
+        self.assertEqual(result["functional"]["failed"], 1)
+        self.assertEqual(result["missingAcceptance"], ["service info"])
+        self.assertTrue((workflow.session_dir / "dryrun.json").is_file())
+
+    def test_skipped_new_feature_does_not_count_as_passed(self):
+        workflow = self.workflow()
+        workflow.prepare_session()
+        workflow.apply_scratch([])
+        workflow.scratch_target("verify.yml").write_text("info: 验证\nsteps: [{name: assert_true, args: [true]}]\n", encoding="utf-8")
+        workflow.acceptance = ["新功能"]
+        workflow.functional_checks = [{"name": "新功能", "yaml": "verify.yml"}]
+
+        def execute(command, timeout, label, **kwargs):
+            if label.startswith("验证新功能"):
+                raise ai.ProcessExitError(77)
+            yield from self.regression_result(command, timeout, label, **kwargs)
+
+        with patch.object(workflow, "execute", side_effect=execute), patch.object(ai.shutil, "which", return_value="codex"):
+            result = workflow.validate([])
+        self.assertFalse(workflow.dryrun_ok)
+        self.assertEqual(result["functional"]["skipped"], 1)
+        self.assertEqual(result["functional"]["passed"], 0)
+
+    def test_adapter_build_failure_does_not_run_functional_tests(self):
+        workflow = self.workflow()
+        workflow.prepare_session()
+        workflow.scratch_target("verify.yml").write_text("info: 验证\nsteps: [{name: assert_true, args: [true]}]\n", encoding="utf-8")
+        workflow.changed = {"adapter/src/new.cpp": {"path": "adapter/src/new.cpp", "status": "added"}}
+        workflow.acceptance = ["新功能"]
+        workflow.functional_checks = [{"name": "新功能", "yaml": "verify.yml"}]
+        labels = []
+
+        def execute(command, timeout, label, **kwargs):
+            labels.append(label)
+            if label == "构建 Adapter":
+                raise ai.ProcessExitError(1)
+            yield from self.regression_result(command, timeout, label, **kwargs)
+
+        with patch.object(workflow, "execute", side_effect=execute), patch.object(ai.shutil, "which", return_value="codex"):
+            result = workflow.validate([])
+        self.assertTrue(result["buildFailed"])
+        self.assertEqual(result["functional"]["skipped"], 1)
+        self.assertFalse(any(label.startswith("验证新功能") for label in labels))
+        self.assertFalse(workflow.dryrun_ok)
+
+    def test_ai_marker_follows_info_without_reformatting_steps(self):
+        import yaml
+        source = 'info:\n  name: 测试\n  input: |\n    第一行\n    第二行\n# 步骤说明\nsteps:\n  - name: assert_true\n    args: [true]\n'
+        marked = ai.ai_yaml(source)
+        self.assertEqual(yaml.safe_load(marked)["ai_created"], True)
+        self.assertLess(marked.index("ai_created: true"), marked.index("steps:"))
+        self.assertIn('args: [true]', marked)
+        self.assertIn('# 步骤说明', marked)
+        self.assertEqual(ai.ai_yaml(marked), marked)
+        replacement = ai.ai_yaml('ai_created: false\ninfo: example\nsteps: []\n')
+        self.assertEqual(replacement, 'info: example\nai_created: true\nsteps: []\n')
+        with self.assertRaises(ValueError):
+            ai.ai_yaml('steps: []')
+
+    def test_formal_cases_require_a_changed_plan_and_mark_both_files(self):
+        import yaml
+        workflow = self.workflow()
+        workflow.category = "development"
+        workflow.allowed = {"cases/feature.yml", "plans/feature.yml"}
+        workflow.apply([{"path": "cases/feature.yml", "content": "info: 功能验证\nsteps: [{name: assert_true, args: [true]}]\n"}])
+        workflow.acceptance = ["新功能"]
+        workflow.functional_checks = [{"name": "新功能", "case": "feature", "yaml": ""}]
+        with self.assertRaisesRegex(ValueError, "加入.*测试计划"):
+            workflow.validate([])
+        workflow.apply([{"path": "plans/feature.yml", "content": "info: 功能计划\ncases: [{case: feature}]\n"}])
+        with patch.object(workflow, "execute", side_effect=self.regression_result):
+            results = workflow.validate([])
+        self.assertTrue(workflow.dryrun_ok)
+        for relative in workflow.allowed:
+            self.assertTrue(yaml.safe_load((self.root / relative).read_text())["ai_created"])
+        self.assertEqual(results["checks"][0]["caseName"], "功能验证")
+        self.assertFalse(results["checks"][0]["temporary"])
+
+    def test_python_only_and_non_yaml_feature_checks_are_rejected(self):
+        workflow = self.workflow()
+        workflow.functional_checks = [{"name": "功能", "script": "check.py"}]
+        with self.assertRaisesRegex(ValueError, "不能直接执行脚本"):
+            workflow.validate([])
+        workflow.changed = {"components/example.py": {"path": "components/example.py"}}
+        workflow.functional_checks = [{"name": "功能", "case": "old"}]
+        with self.assertRaisesRegex(ValueError, "临时 KDT YAML"):
+            workflow.validate([])
+        for content in ('steps: []', 'info: test\nsteps: []', 'info: test\nsteps: [false]',
+                        'info: test\nsteps: [{name: test, dep: 1}]'):
+            with self.assertRaises(ValueError):
+                ai.case_definition(content)
+        legacy, name = ai.case_definition('- name: assert_true\n  args: [true]\n', functional=False, fallback="legacy")
+        self.assertEqual(name, "legacy")
+        self.assertEqual(len(legacy["steps"]), 1)
+        self.assertEqual(ai.case_definition('info: old\nsteps: []\n', functional=False)[0]["steps"], [])
+
+    def test_temporary_yaml_is_archived_with_results_and_rounds_are_immutable(self):
+        workflow = self.workflow()
+        workflow.category = "development"
+        workflow.acceptance = ["新功能"]
+        workflow.prepare_session()
+        workflow.apply_scratch([{"path": "pending/check.yaml", "content": "info: 临时功能验证\nsteps: [{name: assert_true, args: [true]}]\n"}])
+        workflow.functional_checks = [{"name": "新功能", "yaml": "pending/check.yaml"}]
+        with patch.object(workflow, "execute", side_effect=self.regression_result), patch.object(ai.shutil, "which", return_value="codex"):
+            first = workflow.validate([])["checks"][0]
+            workflow.scratch_target("pending/check.yaml").write_text("info: 修订验证\nsteps: [{name: assert_true, args: [false]}]\n", encoding="utf-8")
+            second = workflow.validate([])["checks"][0]
+        self.assertEqual(first["status"], "passed")
+        self.assertTrue(first["temporary"])
+        self.assertEqual(first["caseName"], "临时功能验证")
+        self.assertNotEqual(first["archivePath"], second["archivePath"])
+        self.assertIn("[true]", (workflow.workspace / first["archivePath"]).read_text())
+        self.assertIn("[false]", (workflow.workspace / second["archivePath"]).read_text())
+        self.assertFalse((self.root / "cases").exists())
+
+    def test_temporary_yaml_real_runner_reports_pass_fail_and_uses_session_log(self):
+        # 使用真实 runner/组件加载和子进程退出码，不调用模型、不依赖外部 Adapter。
+        shutil.copytree(Path(__file__).resolve().parents[1] / "framework", self.root / "framework")
+        component = self.root / "components/core/probe.py"
+        component.parent.mkdir(parents=True)
+        component.write_text('def check(value):\n    assert value, "functional failure"\n', encoding="utf-8")
+        (self.root / "components/keywords.yml").write_text('probe:\n  name: 探针\n  component: core.probe.check\n  args: [{name: value, type: Any}]\n', encoding="utf-8")
+        workflow = self.workflow()
+        workflow.category = "development"
+        workflow.acceptance = ["探针"]
+        workflow.prepare_session()
+        target = workflow.scratch_target("probe.yml")
+        workflow.functional_checks = [{"name": "探针", "yaml": "probe.yml"}]
+        real_execute = workflow.execute
+        def execute(command, timeout, label, **kwargs):
+            if label == "运行回归测试":
+                yield from self.regression_result(command, timeout, label, **kwargs)
+            else:
+                yield from real_execute(command, timeout, label, **kwargs)
+        # 此处仅替换外层 CLI 沙箱，真实 runner 仍在独立临时目录执行。
+        with patch.object(workflow, "execute", side_effect=execute), patch.object(workflow, "session_command", side_effect=lambda command: command):
+            for value, status in (("true", "passed"), ("false", "failed")):
+                target.write_text('info: 真实 YAML 验证\nsteps: [{name: probe, args: [' + value + ']}]\n', encoding="utf-8")
+                result = workflow.validate([])
+                self.assertEqual(result["checks"][0]["status"], status)
+                self.assertEqual(workflow.dryrun_ok, status == "passed")
+        self.assertTrue(workflow.scratch_target("tmp/summary.log").is_file())
+        self.assertFalse((self.root / "tmp/summary.log").exists())
+
+    def test_cancelled_yaml_preserves_archived_case_in_delivery(self):
+        workflow = self.workflow()
+        workflow.prepare_session()
+        workflow.scratch_target("check.yml").write_text('info: 可取消验证\nsteps: [{name: assert_true, args: [true]}]\n', encoding="utf-8")
+        workflow.functional_checks = [{"name": "新功能", "yaml": "check.yml"}]
+        def execute(command, timeout, label, **kwargs):
+            if label.startswith("验证新功能"):
+                raise InterruptedError("用户取消任务")
+            yield from self.regression_result(command, timeout, label, **kwargs)
+        with patch.object(workflow, "execute", side_effect=execute), patch.object(ai.shutil, "which", return_value="codex"):
+            with self.assertRaises(InterruptedError):
+                workflow.validate([])
+        result = json.loads(workflow.scratch_target("dryrun.json").read_text())
+        self.assertEqual(result["checks"][0]["status"], "cancelled")
+        self.assertTrue((workflow.workspace / result["checks"][0]["archivePath"]).is_file())
+
+    def test_delivery_archive_contains_only_final_metadata_and_verification(self):
+        workflow = self.workflow()
+        workflow.category = "development"
+        workflow.prepare_session()
+        workflow.changed = {"adapter/src/tool.cpp": {"path": "adapter/src/tool.cpp", "status": "added"}}
+        workflow.questions = ["待确认支持平台"]
+        workflow.publish_conclusion({"conclusion": " 已完成验证 "})
+        workflow.dryrun_results = {"functional": {"total": 1, "passed": 1}}
+        workflow.save_delivery("completed")
+        archive = json.loads(workflow.scratch_target("delivery.json").read_text())
+        self.assertEqual(archive["schemaVersion"], 1)
+        self.assertEqual(archive["session"]["key"], workflow.session_key)
+        self.assertEqual(archive["conclusion"], "已完成验证")
+        self.assertEqual(archive["files"], list(workflow.changed.values()))
+        self.assertNotIn("commands", archive)
+        self.assertNotIn("catalog", archive)
+        self.assertNotIn("quota", archive)
+        self.assertGreaterEqual(archive["timing"]["finishedAt"], archive["timing"]["startedAt"])
+        workflow.save_delivery("cancelled", "用户取消")
+        self.assertEqual(json.loads(workflow.scratch_target("delivery.json").read_text())["error"], "用户取消")
+        self.assertFalse(workflow.scratch_target("delivery.json.tmp").exists())
+
+    def test_consultation_without_session_does_not_create_delivery_archive(self):
+        workflow = self.workflow()
+        workflow.save_delivery("completed")
+        self.assertFalse(workflow.session_dir.exists())
 
 
 class CodexQuotaTest(unittest.TestCase):

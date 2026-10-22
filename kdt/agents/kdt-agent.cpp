@@ -353,6 +353,12 @@ auto guarded(Fn fn) {
     };
 }
 
+bool yaml_ai_created(const fs::path &path) {
+    // AI 交付始终生成独立的顶层布尔字段，不接受字符串 "true"。
+    static const std::regex marker(R"((^|\n)ai_created:[ \t]*(true|True|TRUE)[ \t]*(#[^\r\n]*)?(\r?\n|$))");
+    return std::regex_search(read_text(path), marker);
+}
+
 json list_cases(const fs::path &cases_root) {
     json result = json::array();
     if (!fs::exists(cases_root))
@@ -366,6 +372,7 @@ json list_cases(const fs::path &cases_root) {
         result.push_back({
             {"id", id},
             {"name", yaml_info(entry.path(), filename)},
+            {"ai_created", yaml_ai_created(entry.path())},
             {"filename", filename},
             {"folder", dot == std::string::npos ? "" : id.substr(0, dot)},
         });
@@ -387,6 +394,7 @@ json list_plans(const fs::path &plans_root) {
         result.push_back({
             {"id", id},
             {"name", yaml_info(entry.path(), id)},
+            {"ai_created", yaml_ai_created(entry.path())},
             {"filename", entry.path().filename().string()},
         });
     }

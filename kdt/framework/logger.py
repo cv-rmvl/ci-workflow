@@ -3,6 +3,7 @@
 import inspect
 import sys
 from datetime import datetime
+import os
 from pathlib import Path
 from threading import Lock
 
@@ -117,7 +118,8 @@ class Logger:
         """记录跳过信息。"""
         self._write("skip", message, source)
 
-logger = Logger(Path(__file__).resolve().parents[1] / "tmp" / "summary.log")
+logger = Logger(Path(os.environ["KDT_LOG_FILE"]) if os.environ.get("KDT_LOG_FILE")
+                else Path(__file__).resolve().parents[1] / "tmp" / "summary.log")
 """
 KDT 全局日志记录器
 """
