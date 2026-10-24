@@ -1,3 +1,12 @@
+#!/usr/bin/env python3
+
+# @brief: RMVL KDT 测试执行器
+# @author: zhaoxi(535394140@qq.com)
+# @version: 1.0.0
+# @date: 2026-10-24
+# @copyright: Copyright (c) 2026, RMVL
+# @license: Apache License 2.0
+
 import argparse
 import os
 import shlex
@@ -11,8 +20,8 @@ for stream in (sys.stdout, sys.stderr):
     if callable(reconfigure):
         reconfigure(encoding="utf-8", errors="replace")
 
-from framework import logger, run_plan
-from framework.runner import PlanExecutionError
+from framework import kdt_config, logger, kdt_log_result
+from framework.runner import PlanExecutionError, run_plan
 
 # Enviroment configuration
 class Config:
@@ -29,11 +38,10 @@ def parse_args():
     """
     parser = argparse.ArgumentParser()
     parser.add_argument("plans", nargs="+", metavar="PLAN",
-        help=("Test plans to execute. A bare name is resolved from kdt/plans and automatically gets the .yml suffix."),
+        help=("待执行的测试计划文件，将从 kdt/plans 中解析名称，并自动获取 .yml 后缀"),
     )
     parser.add_argument("--rmvl-dir", type=Path, default=None,
-        help=("RMVL install prefix. RMVLConfig.cmake is searched recursively "
-              "under this directory before configuring adapters."),
+        help=("RMVL 安装路径前缀，在 CMake 配置适配层前，将在该路径下递归搜索 RMVLConfig.cmake"),
     )
     return parser.parse_args()
 
@@ -51,23 +59,23 @@ def resolve_plan(plan: str) -> Path:
 
     path = path.resolve()
     if not path.is_file():
-        raise FileNotFoundError(f"Test plan file not found: {path}")
+        raise FileNotFoundError(f"测试计划文件未找到: {path}")
     return path
 
 def resolve_rmvl_dir(prefix: Path) -> Path:
     """在 RMVL 安装前缀中查找包含 RMVLConfig.cmake 的目录。"""
     prefix = prefix.expanduser().resolve()
     if not prefix.is_dir():
-        raise FileNotFoundError(f"RMVL install prefix not found: {prefix}")
+        raise FileNotFoundError(f"RMVL 安装前缀未找到: {prefix}")
 
     config_files = sorted(prefix.rglob("RMVLConfig.cmake"))
     if not config_files:
         raise FileNotFoundError(
-            f"RMVLConfig.cmake not found under: {prefix}"
+            f"无法在以下路径找到 RMVLConfig.cmake: {prefix}"
         )
 
     rmvl_dir = config_files[0].parent
-    logger.info(f"Found RMVL package config: {config_files[0]}")
+    logger.info(f"成功找到 RMVL 包配置: {config_files[0]}")
     return rmvl_dir
 
 def configure_rmvl_environment(rmvl_dir: Path):
@@ -117,22 +125,23 @@ def build_adapter(rmvl_dir=None):
     execute(exe_cmd)
 
     exe_cmd = ["cmake", "--build", str(Config.adapt_build_dir), "--parallel"]
-    if os.name == "nt":
+    if kdt_config.system == "win":
         exe_cmd.extend(["--config", "Release"])
     execute(exe_cmd)
+    kdt_config.refresh()
     logger.success("Adapter build succeeded")
 
 def command_line() -> str:
     """返回包含 Python 解释器参数在内的实际启动命令。"""
     args = getattr(sys, "orig_argv", [sys.executable, *sys.argv])
-    if os.name == "nt":
+    if kdt_config.system == "win":
         return subprocess.list2cmdline(args)
     return shlex.join(args)
 
 def main() -> int:
     """Build adapters and execute all plans specified on the command line."""
     logger.info(
-        f"Run script: {Path(__file__).resolve()}; command: {command_line()}"
+        f"执行测试脚本: {Path(__file__).resolve()}; 命令: {command_line()}"
     )
     args = parse_args()
     try:
@@ -153,7 +162,7 @@ def main() -> int:
         build_adapter(rmvl_dir)
     except Exception as exc:
         logger.error(
-            "Adapter build failed; test plans were not executed: "
+            "适配层 Adapter 构建错误，测试计划暂未执行: "
             f"{type(exc).__name__}: {exc}"
         )
         if isinstance(exc, subprocess.CalledProcessError):
@@ -162,20 +171,20 @@ def main() -> int:
 
     failed = False
     for plan_file in plan_files:
-        logger.info(f"Run plan: {plan_file}")
+        logger.info(f"=== 执行测试计划: {plan_file} ===")
         try:
             run_plan(plan_file)
         except PlanExecutionError:
             failed = True
-            logger.error(f"Plan failed: {plan_file}")
+            kdt_log_result(plan_file.name, "failed")
         except Exception as exc:
             failed = True
+            kdt_log_result(plan_file.name, "aborted")
             logger.error(
-                f"Plan failed: {plan_file}: "
-                f"{type(exc).__name__}: {exc}"
+                f"异常: {plan_file}: {type(exc).__name__}: {exc}"
             )
         else:
-            logger.success(f"Plan passed: {plan_file}")
+            kdt_log_result(plan_file.name, "passed")
 
     return 1 if failed else 0
 

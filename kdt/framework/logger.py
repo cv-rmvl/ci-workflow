@@ -9,12 +9,15 @@ from threading import Lock
 
 
 _COLORS = {
+    "info": "\033[0m",
     "pass": "\033[32m",
     "warn": "\033[33m",
     "erro": "\033[31m",
     "skip": "\033[90m",
 }
 _COLOR_RESET = "\033[0m"
+_COLOR_DATE = "\033[90m"
+_COLOR_SOURCE = "\033[34m"
 
 
 class Logger:
@@ -91,11 +94,14 @@ class Logger:
             with self.log_file.open("a", encoding="utf-8") as stream:
                 stream.write(text)
 
-            color = _COLORS.get(level)
-            if color is None:
-                sys.stdout.write(text)
-            else:
-                sys.stdout.write(f"{color}{text}{_COLOR_RESET}")
+            color = _COLORS.get(level, "")
+            terminal = "".join(
+                f"{_COLOR_DATE}[{timestamp}]{_COLOR_RESET} "
+                f"{color}[{level}]{_COLOR_RESET} "
+                f"{_COLOR_SOURCE}[{caller}]{_COLOR_RESET} {line}\n"
+                for line in lines
+            )
+            sys.stdout.write(terminal)
             sys.stdout.flush()
 
     def success(self, message, source=None):
@@ -123,3 +129,11 @@ logger = Logger(Path(os.environ["KDT_LOG_FILE"]) if os.environ.get("KDT_LOG_FILE
 """
 KDT 全局日志记录器
 """
+
+
+def kdt_log_result(result: str, status: str):
+    """显示测试执行结果。"""
+    result_block = '─' * (len(result) + len(status) + 9)
+    logger.info(f'┌{result_block}┐')
+    logger.info(f'│   {result} ({status})   │')
+    logger.info(f'└{result_block}┘')
