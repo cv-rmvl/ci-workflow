@@ -30,8 +30,9 @@ void help() {
         "  topic help | list [-c] | info <topic>\n"
         "  service help | list [-c] | info <service>\n"
         "选项:\n"
+        "  --domain N   查询域 ID，默认 0，范围 0 至 255\n"
         "  --wait-ms N  初始发现窗口，默认 1000 ms，范围 1 至 86400000 ms\n"
-        "  -c           list 仅输出去重后的数量\n"
+        "  -c           list 仅输出去重后的数量（node 按 GUID，其余按名称）\n"
         "  --           后续参数全部视为位置参数\n"
         "查询结果为窗口结束时的快照，不保证已发现网络中全部节点\n"
         "服务传输话题通过 service 命令访问\n"
@@ -72,6 +73,7 @@ struct Options {
     std::string group, command;
     std::vector<std::string> args;
     bool count_only{};
+    std::uint8_t domain{};
     Milliseconds wait{1000};
 };
 
@@ -114,11 +116,17 @@ Options parse(int argc, char **argv) {
             o.count_only = true;
             continue;
         }
-        if (arg != "--wait-ms")
+        if (arg != "--wait-ms" && arg != "--domain")
             throw ArgumentError("当前命令不支持选项: " + arg);
         if (++i >= argc)
             throw ArgumentError("选项缺少值: " + arg);
         const auto value = decimal(argv[i]);
+        if (arg == "--domain") {
+            if (value > 255)
+                throw ArgumentError("域 ID 超出范围，必须为 0 至 255");
+            o.domain = static_cast<std::uint8_t>(value);
+            continue;
+        }
         if (value == 0 || value > 86400000)
             throw ArgumentError("时间参数超出范围: " + arg);
         o.wait = Milliseconds(static_cast<std::int64_t>(value));
@@ -203,7 +211,7 @@ std::string unique_type(const std::set<std::string> &types, const std::string &n
 
 class Tool final : public rm::lpss::async::Node {
 public:
-    explicit Tool(Options options) : Node("kdt_lpss_tool"), _options(std::move(options)) {}
+    explicit Tool(Options options) : Node("kdt_lpss_tool", options.domain), _options(std::move(options)) {}
     int result{130};
 
     Task<> run() {
@@ -313,7 +321,10 @@ private:
         const auto target = list ? std::string{} : _options.args.front();
         const auto nodes = graph();
         if (group == "node") {
-            if (list) {
+            if (list && _options.count_only) {
+                // 发现表以 GUID 为键，同名不同 GUID 的节点分别计数。
+                fmt::println("{}", nodes.size());
+            } else if (list) {
                 std::set<std::string> names;
                 for (const auto &node : nodes)
                     names.insert(node.name);

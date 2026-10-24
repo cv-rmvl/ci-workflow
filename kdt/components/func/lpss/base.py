@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 from threading import Condition, Lock, Thread
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from framework import logger
 from framework.exceptions import KeywordSkipped
@@ -27,6 +27,12 @@ class LpssAdapter(Enum):
     SRV_SERVICE = "lpss.srv.service"
     SRV_TESTCLIENT = "lpss.srv.testclient"
     SRV_TESTSERVICE = "lpss.srv.testservice"
+
+
+class LpssQueryAdapter(Enum):
+    """短生命周期的 LPSS 查询工具，不属于可停止的后台节点。"""
+
+    TOOL = "lpss.tool"
 
 
 class LpssSignal(Enum):
@@ -61,7 +67,7 @@ _SKIPPED_EXIT_CODE = 77
 _RESULT_PREFIX = "KDT_RESULT: "
 
 
-def _adapter(adapter: LpssAdapter) -> Path:
+def _adapter(adapter: Union[LpssAdapter, LpssQueryAdapter]) -> Path:
     """返回 adapter/bin 下指定 LPSS 可执行程序的绝对路径。"""
     suffix = ".exe" if os.name == "nt" else ""
     executable = (
@@ -193,7 +199,7 @@ def result(task: LpssTask, count: int, unique: bool, timeout: float):
             task.condition.wait(remaining)
 
 
-def _run(adapter: LpssAdapter, arguments: List[str], expected_exit_code: int = 0, timeout: Optional[float] = None):
+def _run(adapter: Union[LpssAdapter, LpssQueryAdapter], arguments: List[str], expected_exit_code: int = 0, timeout: Optional[float] = None):
     """执行短生命周期 LPSS Adapter，并校验退出状态和最长运行时间。"""
     result = subprocess.run(
         [str(_adapter(adapter)), *arguments],
@@ -215,6 +221,8 @@ def _run(adapter: LpssAdapter, arguments: List[str], expected_exit_code: int = 0
             f"{adapter.value} exited with code {result.returncode}, "
             f"expected {expected_exit_code}"
         )
+
+    return result.stdout
 
 
 def _require_supported(adapter: LpssAdapter):

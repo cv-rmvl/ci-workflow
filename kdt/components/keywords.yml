@@ -229,8 +229,8 @@ lpss_msg_strpub:
     - name: 发布周期，单位为毫秒
       type: int
 lpss_msg_strcollect:
-  name: 注册 std/String 订阅任务：stepres
-  info: 组件将在后台持续订阅字符串消息，接收结果保存在后台任务中，可将本步骤返回值传给“等待 LPSS 后台任务结果”组件，无需写入临时文件
+  name: 注册 std/String 订阅任务
+  info: 组件将在后台持续订阅字符串消息，接收结果保存在后台任务中，可将本步骤返回值传给“等待 LPSS 订阅任务结果”组件，无需写入临时文件
   component: func.lpss.msg.strcollect
   args:
     - name: 订阅节点名称
@@ -249,8 +249,8 @@ lpss_msg_testpub:
     - name: 发布周期，单位为毫秒
       type: int
 lpss_msg_testcheck:
-  name: 注册 TestTypes 消息订阅任务：stepres
-  info: 组件在后台订阅 KDT 自定义 TestTypes 消息并逐字段校验，校验结果保存在后台任务中，可将本步骤返回值传给“等待 LPSS 后台任务结果”组件
+  name: 注册 TestTypes 消息订阅任务
+  info: 组件在后台订阅 KDT 自定义 TestTypes 消息并逐字段校验，校验结果保存在后台任务中，可将本步骤返回值传给“等待 LPSS 订阅任务结果”组件
   component: func.lpss.msg.testcheck
   args:
     - name: 订阅节点名称
@@ -258,11 +258,11 @@ lpss_msg_testcheck:
     - name: 订阅主题
       type: str
 lpss_wait_result:
-  name: 等待 LPSS 后台任务结果
+  name: 等待 LPSS 订阅任务结果
   info: 等待订阅任务产生指定数量的结果，仅统计不同结果时会去重并排序。一个结果直接返回字符串，多个结果返回字符串列表，超时或后台任务提前退出时该步骤失败
   component: func.lpss.base.result
   args:
-    - name: LPSS 后台任务
+    - name: LPSS 后台订阅任务
       type: Any
     - name: 结果数量
       type: int
@@ -332,7 +332,7 @@ lpss_stop:
   info: 根据 Adapter 类型和节点名称查找当前 KDT 启动的后台节点并发送指定信号；SIGINT、SIGTERM 要求节点在 1 秒内以退出码 0 优雅退出，其中 Windows 应使用可定向到指定进程组的 SIGTERM；SIGABRT、SIGSEGV、SIGKILL 要求节点确实由对应信号终止；节点不存在、信号不受当前平台支持或超时后被强制终止均会导致步骤失败
   component: func.lpss.base.stop
   args:
-    - name: LPSS Adapter
+    - name: LPSS 节点（均为适配层启动的后台节点）
       type: Enum
       data:
         - msg.strpub
@@ -353,3 +353,21 @@ lpss_stop:
         - SIGKILL
     - name: LPSS 节点名称
       type: str
+lpss_node_count:
+  name: 获取 LPSS 节点个数
+  info: 返回指定域内的节点数量，统计时长固定 1s，按 GUID 去重，同名不同 GUID 分别计数，排除查询节点自身。查询失败或超过 5 秒时步骤失败，C++17 环境自动跳过
+  component: func.lpss.node.count
+  args:
+    - name: 域 ID
+      type: int
+lpss_node_check:
+  name: 检查 LPSS 节点是否存在
+  info: 在指定域内捕获精确匹配节点名称，并断言是否存在，查询失败或超过 5 秒时步骤失败，不作为不存在处理，C++17 环境自动跳过
+  component: func.lpss.node.check
+  args:
+    - name: 节点名称
+      type: str
+    - name: 是否存在
+      type: bool
+    - name: 域 ID
+      type: int
