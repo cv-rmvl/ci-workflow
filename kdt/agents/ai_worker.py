@@ -33,6 +33,14 @@ KINDS = ("development", "design", "consultation", "out_of_scope")
 EDITABLE = {"components", "cases", "plans", "adapter"}
 EXCLUDED = {"tmp", "build", "bin", "__pycache__", ".cache"}
 SUMMARY_WORD_LIMIT = 40
+KNOWLEDGE_DIRECTORY = Path(__file__).resolve().parent / "knowledge"
+PHASE_KNOWLEDGE = {
+    "analysis": ("analysis.md",),
+    "boundary": ("edge.md",),
+    "coding": ("coding.md", "dry-run.md"),
+    "dryrun": ("dry-run.md",),
+    "review": ("review.md", "dry-run.md"),
+}
 
 
 def concise_summary(text):
@@ -223,6 +231,8 @@ SCHEMA = object_schema({
     })},
     "scratch_files": {"type": "array", "items": object_schema({"path": STRING, "content": STRING})},
     "blocking_issues": STRINGS,
+    "review_issue_kind": {"type": "string", "enum": ["none", "dryrun_process", "implementation"],
+                          "description": "审核阻断原因：无问题、仅验证流程不合理、实现缺陷或无法实现"},
     "approved": {"type": "boolean"},
 })
 
@@ -245,6 +255,7 @@ class Workflow:
         self.usage = 0
         self.provider = provider or self.codex
         self.dryrun_ok = False
+        self.validation_failed = False
         self.runtime_reported = False
         self.codex_calls = 0
         self.command_calls = 0
@@ -260,6 +271,8 @@ class Workflow:
         self.case_baseline = {str(path.relative_to(self.root)): path.read_bytes()
                               for path in (self.root / "cases").rglob("*")
                               if path.is_file() and path.suffix in {".yml", ".yaml"}}
+        keywords = self.root / "components/keywords.yml"
+        self.keyword_baseline = keywords.read_bytes() if keywords.is_file() else b""
 
     def set_session_summary(self, summary):
         if not isinstance(summary, str):
@@ -343,6 +356,21 @@ class Workflow:
             raise ValueError("文件类型或目录不允许修改：" + relative)
         return resolved
 
+    def knowledge_instructions(self):
+        # 规范按每次调用读取，更新 Markdown 后新阶段立即使用，不缓存旧内容。
+        documents = []
+        phase = "analysis" if self.phase == "idle" else self.phase
+        for name in PHASE_KNOWLEDGE.get(phase, ()):
+            path = KNOWLEDGE_DIRECTORY / name
+            try:
+                content = path.read_text(encoding="utf-8").strip()
+            except OSError as error:
+                raise RuntimeError("无法读取阶段规范：" + str(path)) from error
+            if not content:
+                raise ValueError("阶段规范不能为空：" + str(path))
+            documents.append("规范文件 agents/knowledge/{}：\n{}".format(name, content))
+        return "\n\n".join(documents)
+
     def codex(self):
         executable = shutil.which(os.environ.get("KDT_AI_CODEX", "codex"))
         if not executable:
@@ -368,25 +396,7 @@ class Workflow:
              if scratch_enabled else "本阶段只读，不得写文件或执行构建、测试。") +
             "用户需求：" + self.request["prompt"] + "\n"
             "当前阶段：" + self.phase + "\n"
-            "analysis: 分类 development/design/consultation/out_of_scope，分析问题，不提交文件。"
-            "session_summary 用一句短语概括目标、关键功能和必要约束，最多40词，中文尽量不超过40字。保留API/工具名、C++版本等关键词，去掉背景铺垫、过程说明和套话。"
-            "acceptance_checks 逐项列出本次需求的新特性验收目标，不得以旧用例替代。"
-            "consultation 仅咨询文本，out_of_scope 礼貌拒绝无关请求。"
-            "boundary: 列出 editable_files 明确允许改动的文件，以及不能改动的边界。"
-            "coding: 仅为 editable_files 中的文件提供 files 完整代码。functional_cases 是补充的点分用例 id，未修改的旧用例仅算回归。"
-            "functional_checks 为每个验收项给出一个同名检查，必须由一个或多个 KDT YAML 用例验证，禁止直接以 Python 脚本充当功能测试。"
-            "组件或适配层开发必须用临时 YAML：yaml 为当前会话目录内的相对文件路径，case 填空字符串。临时用例不放入正式 cases，执行快照由桥接层归档到当前会话目录。"
-            "用例开发必须交付正式 YAML 用例并加入本次新增或修改的测试计划：case 为点分用例 id，yaml 填空字符串。所有本次编写的正式用例必须被本次变更的计划引用。"
-            "混合任务分别提供临时组件验证用例和已加入计划的正式用例。AI 编写的用例和计划必须在顶层 info 后增加 ai_created: true，桥接层也会自动标记。"
-            "可以用 scratch_files 提交相对会话目录的临时 YAML 和 C++/CMake/Python 测试夹具，或直接在授权目录创建。脚本只能由 YAML 中的组件调用，不能替代 YAML 用例。"
-            "临时用例运行目录是当前会话目录，KDT_ROOT 和 KDT_AI_SESSION_DIR 环境变量可定位正式代码、Adapter 和夹具，所有临时输出应留在会话目录。"
-            "功能验证必须针对本次实际交付的代码或可执行文件，不能只测试临时替身、源代码字符串或旧版本。"
-            "例如开发 lpss.tool，验收必须包含 node list/info、topic list/info、service list/info 六项，按要求覆盖 C++17~C++23，不能用 basic_pubsub 等旧用例代替。"
-            "如需运行节点和编译测试程序，应自行在会话目录准备测试夹具、生成代码、执行 CMake/编译器并清理进程，不得要求用户提供本可自行生成的查询输出。"
-            "design: 先明确边界，review 阶段给出方案，仅在需要时通过 files 输出方案文件。"
-            "review: 仅以实际需求、明确的兼容性要求、真实缺陷、安全问题和 DryRun 验收证据审核。"
-            "blocking_issues 只列确实阻断交付的问题，approved 应等于 blocking_issues 为空。"
-            "不要因风格偏好、额外抽象、未要求的极端场景、补充文档/CI 等建议否决，建议放 questions。已有回归通过不等于新功能通过。"
+            + self.knowledge_instructions() + "\n"
             "questions 必须精简，每条一句短句，只保留当前仍需确认的事项，合并重复项、删除已解决项，每轮返回当前完整列表。不要复述需求、过程、结论或无关建议，无存疑就填[]，不得伪造测试结果。"
             "conclusion 是可选的交付结论，精简为1至2句话，只写实际结果、必要限制或下一步，不重复过程和文件清单，无需单独结论时填空字符串。仅在咨询完成或最终审核时总结实际交付和验证边界，不以回归通过冒充新功能通过。"
             "较长操作前用简短的公开进展说明当前正在做什么、已有发现和接下来要验证什么，不输出内部推理。"
@@ -623,6 +633,8 @@ class Workflow:
         return environment
 
     def review_passed(self, result):
+        if result.get("review_issue_kind", "none") not in {"none", "dryrun_process", "implementation"}:
+            raise ValueError("无效审核问题类型")
         if "blocking_issues" not in result:
             return bool(result.get("approved"))
         issues = result["blocking_issues"]
@@ -683,6 +695,7 @@ class Workflow:
 
     def validate(self, cases):
         # 回归与功能执行独立统计，以真实退出码和用例状态为准。
+        self.validation_failed = False
         if not isinstance(cases, list) or any(not isinstance(case, str) for case in cases):
             raise ValueError("补充用例必须为字符串列表")
         self.prepare_session()
@@ -695,6 +708,24 @@ class Workflow:
         if any(path.startswith(("components/", "adapter/")) for path in self.changed) and not any(
                 check.get("yaml") for check in self.functional_checks):
             raise ValueError("组件或适配层开发必须提供临时 KDT YAML 功能测试用例")
+        # 检查真实 YAML 步骤，不接受在系统命令或说明中提及新增组件来替代调用。
+        import yaml
+        keywords = self.root / "components/keywords.yml"
+        before = yaml.safe_load(self.keyword_baseline) or {}
+        after = yaml.safe_load(keywords.read_bytes()) if keywords.is_file() else {}
+        added = set(after or {}) - set(before)
+        if added:
+            called = set()
+            for check in self.functional_checks:
+                if check.get("yaml"):
+                    target = self.scratch_target(check["yaml"])
+                    if target.suffix not in {".yml", ".yaml"} or not target.is_file():
+                        raise ValueError("临时 KDT YAML 用例不存在：" + str(check["yaml"]))
+                    definition, _ = case_definition(target.read_text(encoding="utf-8"))
+                    called.update(step["name"] for step in definition["steps"])
+            missing = added - called
+            if missing:
+                raise ValueError("临时功能用例必须直接调用新增组件：" + ", ".join(sorted(missing)))
         # 正式交付的用例必须进入本次变更的测试计划，不能只孤立执行。
         import yaml
         planned = set()
@@ -725,6 +756,7 @@ class Workflow:
                         emit("log", level="info", text=line)
             except (OSError, RuntimeError, TimeoutError) as error:
                 build_ok = False
+                self.validation_failed = True
                 emit("log", level="erro", text="Adapter 构建失败，功能测试不执行：" + str(error))
         try:
             runner = (
@@ -742,6 +774,7 @@ class Workflow:
                     regression = json.loads(line.split(":", 1)[1])
                 emit("log", level="info", text=line)
         except (OSError, RuntimeError, TimeoutError) as error:
+            self.validation_failed = True
             if not regression["total"]:
                 regression = {"passed": 0, "failed": 1, "skipped": 0, "total": 1}
             elif not regression["failed"]:
@@ -752,6 +785,8 @@ class Workflow:
                 else:
                     regression["total"] += 1
             emit("log", level="erro", text=str(error))
+        if regression["failed"]:
+            self.validation_failed = True
         # 新增/变更用例不能遗漏，显式列表还可补充已有功能用例。
         cases = list(dict.fromkeys(cases + [
             str(Path(path).relative_to("cases").with_suffix("")).replace(os.sep, ".")
@@ -860,6 +895,8 @@ class Workflow:
                 result["status"] = status
                 result["error"] = str(error)
                 emit("log", level="warn", text=str(error))
+                if status == "failed":
+                    self.validation_failed = True
             evidence.append(result)
             publish_checks()
         missing = [name for name in self.acceptance if name not in covered]
@@ -902,10 +939,12 @@ class Workflow:
             self.publish_conclusion(proposal)
             self.transition("completed")
             return
-        for attempt in range(3):
+        failures = 0
+        while failures < 3:
             self.transition("coding")
             result = self.ask()
             coding_error = None
+            self.validation_failed = False
             try:
                 self.apply(result.get("files", []))
                 self.apply_scratch(result.get("scratch_files", []))
@@ -932,8 +971,13 @@ class Workflow:
                 self.publish_conclusion(review)
                 self.transition("completed")
                 return
-            emit("log", level="warn", text="审核或 DryRun 未通过，返回代码编写（第 {} 轮）".format(attempt + 1))
-        raise RuntimeError("三轮修订后仍未通过，保留变更和验证证据供检查")
+            implementation_issue = not self.review_passed(review) and review.get("review_issue_kind", "implementation") != "dryrun_process"
+            if coding_error or self.validation_failed or implementation_issue:
+                failures += 1
+                emit("log", level="warn", text="实现或执行失败（{}/3），保留审核建议和验证证据".format(failures))
+            else:
+                emit("log", level="warn", text="修正 DryRun 流程并重新验证，不计入失败次数（{}/3）".format(failures))
+        raise RuntimeError("累计三次实现或执行失败，保留变更和验证证据供检查")
 
 
 def main():

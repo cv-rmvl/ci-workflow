@@ -244,6 +244,8 @@ class AiWorkflowTest(unittest.TestCase):
             self.assertIn(".agents/skills", kwargs["stdin"])
             self.assertIn("不要添加 kdt/ 前缀", kwargs["stdin"])
             self.assertIn("最多40词", kwargs["stdin"])
+            self.assertIn("规范文件 agents/knowledge/analysis.md", kwargs["stdin"])
+            self.assertNotIn("规范文件 agents/knowledge/review.md", kwargs["stdin"])
             self.assertIn("精简为1至2句话", kwargs["stdin"])
             self.assertIn("每条一句短句", kwargs["stdin"])
             result = Path(command[command.index("--output-last-message") + 1])
@@ -254,6 +256,37 @@ class AiWorkflowTest(unittest.TestCase):
             self.assertEqual(workflow.codex(), response)
             run.assert_called_once()
         self.assertEqual(workflow.target("components/x.py"), root / "components/x.py")
+
+    def test_each_phase_loads_its_knowledge_and_reuses_dryrun_rules(self):
+        workflow = self.workflow()
+        expected = {"analysis": ["analysis.md"], "boundary": ["edge.md"],
+                    "coding": ["coding.md", "dry-run.md"], "dryrun": ["dry-run.md"],
+                    "review": ["review.md", "dry-run.md"]}
+        for phase, names in expected.items():
+            with self.subTest(phase=phase):
+                workflow.phase = phase
+                instructions = workflow.knowledge_instructions()
+                for name in names:
+                    self.assertIn((ai.KNOWLEDGE_DIRECTORY / name).read_text(encoding="utf-8").strip(), instructions)
+                self.assertEqual(instructions.count("规范文件 agents/knowledge/"), len(names))
+
+    def test_knowledge_is_reloaded_and_missing_or_empty_rules_fail_explicitly(self):
+        workflow = self.workflow()
+        workflow.phase = "analysis"
+        knowledge = Path(self.temporary.name) / "knowledge"
+        knowledge.mkdir()
+        with patch.object(ai, "KNOWLEDGE_DIRECTORY", knowledge):
+            with self.assertRaisesRegex(RuntimeError, "无法读取阶段规范"):
+                workflow.knowledge_instructions()
+            target = knowledge / "analysis.md"
+            target.write_text(" \n", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "阶段规范不能为空"):
+                workflow.knowledge_instructions()
+            target.write_text("第一版规范", encoding="utf-8")
+            self.assertIn("第一版规范", workflow.knowledge_instructions())
+            target.write_text("新版规范", encoding="utf-8")
+            self.assertIn("新版规范", workflow.knowledge_instructions())
+            self.assertNotIn("第一版规范", workflow.knowledge_instructions())
 
     def test_task_model_and_effort_override_local_defaults(self):
         workflow = ai.Workflow(self.root, {"directory": str(self.directory), "prompt": "KDT",
@@ -306,6 +339,69 @@ class AiWorkflowTest(unittest.TestCase):
         results = workflow.validate([])
         self.assertEqual(results["regression"], {"total": 2, "passed": 1, "failed": 0, "skipped": 1})
         self.assertFalse(workflow.dryrun_ok)  # 未执行功能测试时不可宣称开发验证通过。
+
+    def test_process_corrections_do_not_consume_failure_allowance(self):
+        workflow = self.workflow()
+        reviews = []
+
+        def provider():
+            if workflow.phase == "review":
+                reviews.append(True)
+            correction = workflow.phase == "review" and len(reviews) <= 4
+            return {"category": "development", "message": "阶段说明", "editable_files": [],
+                    "acceptance_checks": ["新功能"], "files": [],
+                    "blocking_issues": ["应通过新组件调用验证"] if correction else [],
+                    "review_issue_kind": "dryrun_process" if correction else "none"}
+
+        def validate(_):
+            if len(reviews) < 4:
+                raise ValueError("临时用例编排需要修正")
+            workflow.dryrun_ok = True
+
+        workflow.provider, workflow.validate = provider, validate
+        workflow.run()
+        self.assertEqual(len(reviews), 5)
+        self.assertEqual(workflow.phase, "completed")
+        self.assertEqual(self.output.getvalue().count("不计入失败次数"), 4)
+
+    def test_actual_execution_failures_cannot_be_waived_as_process_advice(self):
+        workflow = self.workflow()
+        reviews = []
+
+        def provider():
+            if workflow.phase == "review":
+                reviews.append(True)
+            return {"category": "development", "message": "阶段说明", "editable_files": [],
+                    "acceptance_checks": ["新功能"], "files": [],
+                    "blocking_issues": ["调整测试流程"], "review_issue_kind": "dryrun_process"}
+
+        def validate(_):
+            workflow.dryrun_ok = False
+            workflow.validation_failed = True
+
+        workflow.provider, workflow.validate = provider, validate
+        with self.assertRaisesRegex(RuntimeError, "累计三次"):
+            workflow.run()
+        self.assertEqual(len(reviews), 3)
+
+    def test_implementation_review_failures_are_limited_to_three(self):
+        workflow = self.workflow()
+        reviews = []
+
+        def provider():
+            if workflow.phase == "review":
+                reviews.append(True)
+            return {"category": "development", "message": "阶段说明", "editable_files": [],
+                    "acceptance_checks": ["新功能"], "files": [],
+                    "blocking_issues": ["实现返回错误结果"], "review_issue_kind": "implementation"}
+
+        def validate(_):
+            workflow.dryrun_ok = True
+
+        workflow.provider, workflow.validate = provider, validate
+        with self.assertRaisesRegex(RuntimeError, "累计三次"):
+            workflow.run()
+        self.assertEqual(len(reviews), 3)
 
     def test_cancel_prevents_next_phase_execution(self):
         workflow = self.workflow(lambda: self.fail("Cancelled task must not call provider"))
@@ -575,6 +671,48 @@ class AiWorkflowTest(unittest.TestCase):
         self.assertIn("[true]", (workflow.workspace / first["archivePath"]).read_text())
         self.assertIn("[false]", (workflow.workspace / second["archivePath"]).read_text())
         self.assertFalse((self.root / "cases").exists())
+
+    def test_new_components_must_be_called_directly_by_temporary_cases(self):
+        keywords = self.root / "components/keywords.yml"
+        keywords.parent.mkdir()
+        keywords.write_text("old: {component: core.old}\n", encoding="utf-8")
+        workflow = self.workflow()
+        workflow.prepare_session()
+        keywords.write_text("old: {component: core.old}\nnew_a: {component: core.new_a}\n"
+                            "new_b: {component: core.new_b}\n", encoding="utf-8")
+        workflow.changed = {"components/keywords.yml": {"path": "components/keywords.yml"}}
+        workflow.acceptance = ["新组件"]
+        workflow.functional_checks = [{"name": "新组件", "yaml": "check.yml"}]
+        target = workflow.scratch_target("check.yml")
+        target.write_text("info: 错误的验证\nsteps: [{name: fs_command, args: ['new_a new_b']}]\n", encoding="utf-8")
+        with patch.object(workflow, "execute") as execute:
+            with self.assertRaisesRegex(ValueError, "直接调用新增组件：new_a, new_b"):
+                workflow.validate([])
+            execute.assert_not_called()
+        target.write_text("info: 部分覆盖\nsteps: [{name: new_a}]\n", encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "直接调用新增组件：new_b"):
+            workflow.validate([])
+        target.write_text("info: 新组件验证\nsteps: [{name: new_a}, {name: new_b}]\n", encoding="utf-8")
+        with patch.object(workflow, "execute", side_effect=self.regression_result), \
+                patch.object(ai.shutil, "which", return_value="codex"):
+            workflow.validate([])
+        self.assertTrue(workflow.dryrun_ok)
+
+    def test_existing_component_changes_do_not_require_a_new_keyword(self):
+        keywords = self.root / "components/keywords.yml"
+        keywords.parent.mkdir()
+        keywords.write_text("existing: {component: core.old}\n", encoding="utf-8")
+        workflow = self.workflow()
+        workflow.prepare_session()
+        keywords.write_text("existing: {component: core.corrected}\n", encoding="utf-8")
+        workflow.changed = {"components/keywords.yml": {"path": "components/keywords.yml"}}
+        workflow.acceptance = ["修正现有组件"]
+        workflow.functional_checks = [{"name": "修正现有组件", "yaml": "check.yml"}]
+        workflow.scratch_target("check.yml").write_text("info: 修正验证\nsteps: [{name: existing}]\n", encoding="utf-8")
+        with patch.object(workflow, "execute", side_effect=self.regression_result), \
+                patch.object(ai.shutil, "which", return_value="codex"):
+            workflow.validate([])
+        self.assertTrue(workflow.dryrun_ok)
 
     def test_temporary_yaml_real_runner_reports_pass_fail_and_uses_session_log(self):
         # 使用真实 runner/组件加载和子进程退出码，不调用模型、不依赖外部 Adapter。
