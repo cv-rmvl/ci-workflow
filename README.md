@@ -27,20 +27,31 @@ git clone https://github.com/cv-rmvl/ci-workflow.git
 完成后，在项目根目录打开终端，执行以下命令：
 
 ```bash
-cmake -S kdt/agents -B build/agents
-cmake --build build/agents --parallel
+./install_kdt_agent.bash
 ```
 
 ### 启动
 
+在任意地方打开终端，执行
+
 ```bash
-./build/agents/rmvl_kdt_agent
+rmvl_kdt_agent
 ```
 
 然后访问 <http://localhost:8765> 即可，也可以指定 `--port` 参数来修改端口号，例如
 
 ```bash
-./build/agents/rmvl_kdt_agent --port 8080
+rmvl_kdt_agent --port 8080
 ```
 
 此时可通过访问 <http://localhost:8080> 来访问 KDT Agent。
+
+### 接入 AI Agent
+
+若计划接入本地 AI Agent，请指定 `--with-ai` 参数，例如
+
+```bash
+rmvl_kdt_agent --with-ai
+```
+
+目前仅支持 Codex。
