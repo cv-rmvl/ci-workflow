@@ -1,0 +1,17 @@
+name: Install ONNX Runtime
+description: Install the ONNX Runtime Linux development package
+inputs:
+  version:
+    description: ONNX Runtime release version without the v prefix
+    required: true
+  arch:
+    description: Linux release architecture (x64 or aarch64)
+    required: true
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        ORT_VERSION: ${{ inputs.version }}
+        ORT_ARCH: ${{ inputs.arch }}
+      run: bash "$GITHUB_ACTION_PATH/../../scripts/install-ort.sh" "$ORT_VERSION" "$ORT_ARCH"

@@ -15,12 +15,12 @@ jobs:
       run: |
         sudo apt update
         sudo apt install -y libeigen3-dev libopencv-dev pybind11-dev
-        curl -sSL https://github.com/microsoft/onnxruntime/releases/download/v1.15.0/onnxruntime-linux-x64-1.15.0.tgz -o onnxruntime-linux-x64-1.15.0.tgz
-        tar -xf onnxruntime-linux-x64-1.15.0.tgz
-        sudo mkdir /usr/local/include/onnxruntime
-        cd onnxruntime-linux-x64-1.15.0
-        sudo cp -r include/* /usr/local/include/onnxruntime
-        sudo cp -r lib /usr/local
+
+    - name: "[RMVL] Install ONNX Runtime"
+      uses: cv-rmvl/ci-workflow/.github/actions/install-ort@v1
+      with:
+        version: '1.15.0'
+        arch: x64
 
     - name: "[RMVL] Configure the project by CMake"
       # RMVL 1.x does not support Python, we also can use the CMake option -DBUILD_PYTHON=ON although it is not necessary
